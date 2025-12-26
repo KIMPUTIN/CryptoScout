@@ -1,0 +1,2 @@
+# CryptoScout
+CryptoScout
