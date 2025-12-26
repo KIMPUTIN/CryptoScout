@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+cryptoscout.db
+.env
+
+# Node / Frontend
+node_modules/
+dist/
+
+# OS
+.DS_Store
