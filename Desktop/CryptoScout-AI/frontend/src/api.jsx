@@ -1,8 +1,8 @@
 
 
-const API_URL = "https://cryptoscout-production.up.railway.app";
+const API_URL = "https://cryptoscout-production.up.railway.app/projects";
 
 export async function fetchProjects() {
-  const res = await fetch(API_URL);
-  return res.json();
+  const response = await fetch(API_URL);
+  return response.json();
 }
