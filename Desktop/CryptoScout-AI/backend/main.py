@@ -1,6 +1,7 @@
 
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from scanner import scan_projects
 from scoring import score_project
@@ -9,6 +10,13 @@ from models import Project
 
 app = FastAPI()
 scheduler = BackgroundScheduler()
+# Added line 14 to 19 ##################
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def job():
     db = SessionLocal()
@@ -39,3 +47,9 @@ def start():
 def get_projects():
     db = SessionLocal()
     return db.query(Project).all()
+
+# Added line 52 to line 54 at the bottom ##################
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
