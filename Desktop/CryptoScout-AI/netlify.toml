@@ -1,5 +1,20 @@
 
+#[build]
+ # base = "frontend"
+  #command = "npm run build"
+  #publish = "dist"
+
+
+# Source - https://stackoverflow.com/a
+# Posted by Yusuf
+# Retrieved 2025-12-30, License - CC BY-SA 4.0
+
 [build]
-  base = "frontend"
   command = "npm run build"
-  publish = "dist"
+  publish = "/build"
+  base ="/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
