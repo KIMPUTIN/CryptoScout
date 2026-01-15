@@ -1,0 +1,23 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CryptoScout AI</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>🚀 CryptoScout AI</h1>
+  <p>Live crypto discovery engine</p>
+
+  <div class="projects">
+    {% for p in projects %}
+      <div class="card">
+        <h3>{{ p.name }} ({{ p.symbol }})</h3>
+        <p>Score: {{ p.score }}</p>
+        <p>Verdict: {{ p.verdict }}</p>
+        <p>{{ p.reasons }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</body>
+</html>
