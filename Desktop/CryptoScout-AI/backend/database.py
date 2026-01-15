@@ -1,22 +1,27 @@
 
 
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from config import DATABASE_URL
-from models import Base
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-
-def init_db():
-    Base.metadata.create_all(engine)
-
-
-
 import sqlite3
 
 DB_NAME = "cryptoscout.db"
+
+
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        symbol TEXT,
+        score INTEGER,
+        verdict TEXT,
+        reasons TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
 
 
 def get_all_projects():
@@ -40,25 +45,3 @@ def get_all_projects():
 
     conn.close()
     return projects
-
-
-
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS projects (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        symbol TEXT,
-        score INTEGER,
-        verdict TEXT,
-        reasons TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-print("DATABASE MODULE LOADED")
-print("Available symbols:", dir())

@@ -5,9 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from database import get_all_projects, init_db
 
-init_db()
+
 
 app = FastAPI()
+init_db()
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
