@@ -60,3 +60,5 @@ def init_db():
 
     conn.commit()
     conn.close()
+print("DATABASE MODULE LOADED")
+print("Available symbols:", dir())
