@@ -1,5 +1,3 @@
-
-
 import sqlite3
 
 DB_NAME = "cryptoscout.db"
