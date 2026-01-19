@@ -1,4 +1,4 @@
-import sys
+
 import os
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -7,33 +7,24 @@ from fastapi.templating import Jinja2Templates
 
 from database import init_db, seed_test_data, get_all_projects
 
-
-# Ensure the current directory is in the path for Railway
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-# Import database functions
-from database import get_all_projects, init_db
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI()
-init_db()
-seed_test_data()
 
-
-# Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# Static files
+static_dir = os.path.join(BASE_DIR, "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Templates
-templates = Jinja2Templates(directory="templates")
+templates_dir = os.path.join(BASE_DIR, "templates")
+templates = Jinja2Templates(directory=templates_dir)
 
 
 @app.on_event("startup")
 def startup_event():
     init_db()
     seed_test_data()
-    
+
 
 @app.get("/", response_class=HTMLResponse)
 def homepage(request: Request):
