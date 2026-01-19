@@ -37,3 +37,15 @@ def homepage(request: Request):
 @app.get("/projects")
 def api_projects():
     return get_all_projects()
+
+
+@app.get("/health")
+def health():
+    """Lightweight runtime check useful for deployments."""
+    css_path = os.path.join(static_dir, "style.css")
+    return {
+        "ok": True,
+        "base_dir": BASE_DIR,
+        "static_dir": static_dir,
+        "style_css_exists": os.path.exists(css_path),
+    }
