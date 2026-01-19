@@ -1,8 +1,3 @@
-
-print("BASE_DIR:", BASE_DIR)
-print("STATIC DIR:", static_dir)
-
-
 import os
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse

@@ -47,35 +47,40 @@ def get_all_projects():
     conn.close()
     return projects
 
-    def seed_test_data():
+
+def seed_test_data():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM projects")
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO projects (name, symbol, score, verdict, reasons)
         VALUES (?, ?, ?, ?, ?)
-    """, (
-        "NovaChain",
-        "NOVA",
-        88,
-        "Strong Buy",
-        "High social growth, strong dev activity, low market cap"
-    ))
+        """,
+        (
+            "NovaChain",
+            "NOVA",
+            88,
+            "Strong Buy",
+            "High social growth, strong dev activity, low market cap",
+        ),
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO projects (name, symbol, score, verdict, reasons)
         VALUES (?, ?, ?, ?, ?)
-    """, (
-        "MetaPulse",
-        "MPX",
-        72,
-        "Buy",
-        "Good tokenomics, early exchange listing, rising volume"
-    ))
+        """,
+        (
+            "MetaPulse",
+            "MPX",
+            72,
+            "Buy",
+            "Good tokenomics, early exchange listing, rising volume",
+        ),
+    )
 
     conn.commit()
     conn.close()
-
-print("DB FILE PATH:", DB_NAME)
