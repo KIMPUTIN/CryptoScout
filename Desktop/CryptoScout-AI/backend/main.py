@@ -4,6 +4,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from database import get_all_projects, init_db, seed_test_data
+
 
 # Ensure the current directory is in the path for Railway
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +17,8 @@ from database import get_all_projects, init_db
 
 app = FastAPI()
 init_db()
+seed_test_data()
+
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
