@@ -80,3 +80,4 @@ def get_all_projects():
     conn.commit()
     conn.close()
 
+print("DB FILE PATH:", DB_NAME)

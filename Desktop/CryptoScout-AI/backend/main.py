@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
 from database import init_db, seed_test_data, get_all_projects
 
 
@@ -22,10 +23,17 @@ seed_test_data()
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
 
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+    seed_test_data()
+    
 
 @app.get("/", response_class=HTMLResponse)
 def homepage(request: Request):
