@@ -1,22 +1,23 @@
 
-
-
-def score_project(project):
-    score = 50
+def analyze_project(project):
+    score = 0
     reasons = []
 
-    if project["website"]:
-        score += 10
-        reasons.append("Website available")
+    # Simple heuristics for MVP
+    if len(project["name"]) > 4:
+        score += 20
+        reasons.append("Strong branding")
 
-    if len(project["name"]) > 3:
-        score += 5
-        reasons.append("Proper naming")
+    if project["symbol"].isupper():
+        score += 20
+        reasons.append("Exchange friendly ticker")
 
-    verdict = "WATCH"
-    if score >= 70:
-        verdict = "INVEST"
-    elif score < 50:
-        verdict = "AVOID"
+    score += 40  # Trending bonus
 
-    return score, verdict, ", ".join(reasons)
+    verdict = "Buy" if score >= 70 else "Watch"
+
+    return {
+        "score": score,
+        "verdict": verdict,
+        "reasons": ", ".join(reasons)
+    }

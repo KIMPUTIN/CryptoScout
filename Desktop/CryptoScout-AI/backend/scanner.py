@@ -1,18 +1,28 @@
 
-
-
 import requests
+from database import save_project
+from scoring import analyze_project
 
-def scan_projects():
-    url = "https://api.coingecko.com/api/v3/search/trending"
-    data = requests.get(url).json()
+COINGECKO_NEW_COINS = "https://api.coingecko.com/api/v3/search/trending"
 
-    projects = []
-    for item in data.get("coins", []):
+
+def scan_coingecko():
+    res = requests.get(COINGECKO_NEW_COINS, timeout=15)
+    data = res.json()
+
+    coins = data.get("coins", [])
+
+    for item in coins:
         coin = item["item"]
-        projects.append({
+
+        project = {
             "name": coin["name"],
-            "symbol": coin["symbol"],
-            "website": coin.get("homepage", "")
-        })
-    return projects
+            "symbol": coin["symbol"]
+        }
+
+        analysis = analyze_project(project)
+
+        project.update(analysis)
+        project["reasons"] = "Trending on CoinGecko. " + project["reasons"]
+
+        save_project(project)

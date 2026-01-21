@@ -3,8 +3,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 from database import init_db, seed_test_data, get_all_projects
+from scheduler import start_scheduler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,6 +23,7 @@ templates = Jinja2Templates(directory=templates_dir)
 def startup_event():
     init_db()
     seed_test_data()
+    start_scheduler()
 
 
 @app.get("/", response_class=HTMLResponse)
