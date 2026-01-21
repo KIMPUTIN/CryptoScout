@@ -50,3 +50,14 @@ def health():
         "static_dir": static_dir,
         "style_css_exists": os.path.exists(css_path),
     }
+
+
+@app.post("/scan/trigger")
+def trigger_scan():
+    """Manually trigger a CoinGecko scan (for testing)."""
+    from scanner import scan_coingecko
+    try:
+        scan_coingecko()
+        return {"status": "success", "message": "Scan completed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

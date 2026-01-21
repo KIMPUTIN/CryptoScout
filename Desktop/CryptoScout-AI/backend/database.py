@@ -49,40 +49,50 @@ def get_all_projects():
 
 
 def seed_test_data():
+    """Only seed test data if database is empty (first run only)."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM projects")
+    # Check if database already has projects
+    cursor.execute("SELECT COUNT(*) FROM projects")
+    count = cursor.fetchone()[0]
 
-    cursor.execute(
-        """
-        INSERT INTO projects (name, symbol, score, verdict, reasons)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            "NovaChain",
-            "NOVA",
-            88,
-            "Strong Buy",
-            "High social growth, strong dev activity, low market cap",
-        ),
-    )
+    # Only seed if database is empty
+    if count == 0:
+        print("📦 Seeding test data (first run)...")
+        cursor.execute(
+            """
+            INSERT INTO projects (name, symbol, score, verdict, reasons)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "NovaChain",
+                "NOVA",
+                88,
+                "Strong Buy",
+                "High social growth, strong dev activity, low market cap",
+            ),
+        )
 
-    cursor.execute(
-        """
-        INSERT INTO projects (name, symbol, score, verdict, reasons)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            "MetaPulse",
-            "MPX",
-            72,
-            "Buy",
-            "Good tokenomics, early exchange listing, rising volume",
-        ),
-    )
+        cursor.execute(
+            """
+            INSERT INTO projects (name, symbol, score, verdict, reasons)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "MetaPulse",
+                "MPX",
+                72,
+                "Buy",
+                "Good tokenomics, early exchange listing, rising volume",
+            ),
+        )
 
-    conn.commit()
+        conn.commit()
+        print("✅ Test data seeded")
+    else:
+        print(f"📊 Database already has {count} projects, skipping seed")
+
     conn.close()
 
 
