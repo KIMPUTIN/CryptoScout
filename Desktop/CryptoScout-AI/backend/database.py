@@ -85,38 +85,49 @@ def seed_test_data():
     conn.commit()
     conn.close()
 
-    def save_project(project):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO projects (name, symbol, score, verdict, reasons)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        project["name"],
-        project["symbol"],
-        project["score"],
-        project["verdict"],
-        project["reasons"]
-    ))
-
-    conn.commit()
-    conn.close()
 
 def save_project(project):
+    """Save or update a project. Updates if name+symbol already exists."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO projects (name, symbol, score, verdict, reasons)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        project["name"],
-        project["symbol"],
-        project["score"],
-        project["verdict"],
-        project["reasons"]
-    ))
-
-    conn.commit()
-    conn.close()
+    try:
+        # Check if project already exists
+        cursor.execute("""
+            SELECT id FROM projects 
+            WHERE name = ? AND symbol = ?
+        """, (project["name"], project["symbol"]))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing project
+            cursor.execute("""
+                UPDATE projects 
+                SET score = ?, verdict = ?, reasons = ?
+                WHERE id = ?
+            """, (
+                project["score"],
+                project["verdict"],
+                project["reasons"],
+                existing[0]
+            ))
+        else:
+            # Insert new project
+            cursor.execute("""
+                INSERT INTO projects (name, symbol, score, verdict, reasons)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                project["name"],
+                project["symbol"],
+                project["score"],
+                project["verdict"],
+                project["reasons"]
+            ))
+        
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ Error saving project {project.get('name', 'unknown')}: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
