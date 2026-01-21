@@ -7,6 +7,7 @@ COINGECKO_NEW_COINS = "https://api.coingecko.com/api/v3/search/trending"
 
 
 def scan_coingecko():
+    print("🔍 Scanning CoinGecko for trending crypto...")
     res = requests.get(COINGECKO_NEW_COINS, timeout=15)
     data = res.json()
 
@@ -26,3 +27,5 @@ def scan_coingecko():
         project["reasons"] = "Trending on CoinGecko. " + project["reasons"]
 
         save_project(project)
+
+         print("✅ Scan completed")

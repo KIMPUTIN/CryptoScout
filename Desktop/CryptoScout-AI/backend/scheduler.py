@@ -6,3 +6,5 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_job(scan_coingecko, "interval", hours=1)
     scheduler.start()
+
+    print("⏰ Crypto scanner scheduler started (runs every hour)")

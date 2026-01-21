@@ -4,15 +4,15 @@ def analyze_project(project):
     reasons = []
 
     # Simple heuristics for MVP
-    if len(project["name"]) > 4:
-        score += 20
+    if len(project["name"]) >= 5:
+        score += 25
         reasons.append("Strong branding")
 
     if project["symbol"].isupper():
-        score += 20
-        reasons.append("Exchange friendly ticker")
+        score += 25
+        reasons.append("Exchange-friendly ticker")
 
-    score += 40  # Trending bonus
+    score += 30  # Trending bonus
 
     verdict = "Buy" if score >= 70 else "Watch"
 
