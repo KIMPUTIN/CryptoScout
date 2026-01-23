@@ -43,11 +43,15 @@ def api_projects():
 def health():
     """Lightweight runtime check useful for deployments."""
     css_path = os.path.join(static_dir, "style.css")
+    # List all registered routes for debugging
+    routes = [{"path": route.path, "methods": list(route.methods) if hasattr(route, 'methods') else []} 
+              for route in app.routes if hasattr(route, 'path')]
     return {
         "ok": True,
         "base_dir": BASE_DIR,
         "static_dir": static_dir,
         "style_css_exists": os.path.exists(css_path),
+        "routes": routes,
     }
 
 
