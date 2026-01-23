@@ -62,6 +62,17 @@ def trigger_scan():
     from scanner import scan_coingecko
     try:
         scan_coingecko()
-        return {"status": "success", "message": "Scan completed"}
+        # Return updated project count
+        projects = get_all_projects()
+        return {
+            "status": "success", 
+            "message": "Scan completed",
+            "total_projects": len(projects)
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        import traceback
+        return {
+            "status": "error", 
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }

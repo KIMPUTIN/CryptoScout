@@ -4,15 +4,22 @@ from scanner import scan_coingecko
 
 
 def start_scheduler():
-    scheduler = BackgroundScheduler()
+    try:
+        scheduler = BackgroundScheduler()
 
-    scheduler.add_job(
-        scan_coingecko,
-        "interval",
-        minutes=1,   # TEMPORARY for testing
-        id="coingecko_scan"
-    )
+        scheduler.add_job(
+            scan_coingecko,
+            "interval",
+            minutes=1,   # TEMPORARY for testing
+            id="coingecko_scan"
+        )
 
-    scheduler.start()
-    print("⏰ Scheduler started (every 1 minute)")
+        scheduler.start()
+        print("⏰ Scheduler started (every 1 minute)")
+        print("⏰ First scan will run in 1 minute...")
+    except Exception as e:
+        print(f"❌ ERROR: Could not start scheduler: {e}")
+        print("   App will continue without automatic scanning")
+        import traceback
+        traceback.print_exc()
 
