@@ -22,7 +22,6 @@ templates = Jinja2Templates(directory=templates_dir)
 @app.on_event("startup")
 def startup_event():
     init_db()
-    seed_test_data()
     start_scheduler()
 
 
