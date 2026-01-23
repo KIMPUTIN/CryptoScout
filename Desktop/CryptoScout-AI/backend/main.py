@@ -52,6 +52,7 @@ def health():
 
 
 @app.post("/scan/trigger")
+@app.get("/scan/trigger")
 def trigger_scan():
     """Manually trigger a CoinGecko scan (for testing)."""
     from scanner import scan_coingecko
