@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "serve -s dist --listen $PORT --host 0.0.0.0"
+    "start": "serve -s dist --listen $PORT"
   },
   "dependencies": {
     "react": "^18.2.0",
