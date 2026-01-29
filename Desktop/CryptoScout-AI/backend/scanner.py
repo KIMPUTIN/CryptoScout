@@ -8,7 +8,8 @@ MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 
 
 def get_market_data(ids):
-    """Fetch detailed market data for coins"""
+    """Fetch detailed market data for coins (rate-limit safe)"""
+
     params = {
         "vs_currency": "usd",
         "ids": ",".join(ids),
@@ -19,10 +20,21 @@ def get_market_data(ids):
         "price_change_percentage": "24h"
     }
 
-    res = requests.get(MARKETS_URL, params=params, timeout=15)
-    res.raise_for_status()
+    try:
+        res = requests.get(MARKETS_URL, params=params, timeout=15)
 
-    return res.json()
+        # Handle rate limit
+        if res.status_code == 429:
+            print("⚠️ CoinGecko rate limit hit. Skipping market data.")
+            return []
+
+        res.raise_for_status()
+        return res.json()
+
+    except Exception as e:
+        print("⚠️ Market data error:", e)
+        return []
+
 
 
 def scan_coingecko():
@@ -47,7 +59,9 @@ def scan_coingecko():
         # Step 3: Get market data
         market_data = get_market_data(ids)
 
-        market_map = {c["id"]: c for c in market_data}
+        market_map = {}
+        if market_data:
+            market_map = {c["id"]: c for c in market_data}
 
         # Step 4: Process coins
         for item in coins:

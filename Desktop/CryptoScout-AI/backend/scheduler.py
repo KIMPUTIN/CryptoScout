@@ -10,7 +10,7 @@ def start_scheduler():
         scheduler.add_job(
             scan_coingecko,
             "interval",
-            minutes=1,   # TEMPORARY for testing
+            minutes=10,   # TEMPORARY for testing
             id="coingecko_scan"
         )
 
