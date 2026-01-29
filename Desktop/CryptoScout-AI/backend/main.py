@@ -1,4 +1,5 @@
 import os
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +12,19 @@ from scoring import calculate_score
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://cryptoscout-production-863c.up.railway.app",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Static files
 static_dir = os.path.join(BASE_DIR, "static")

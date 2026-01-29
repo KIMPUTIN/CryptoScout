@@ -30,13 +30,18 @@ def get_all_projects():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM projects ORDER BY score DESC")
+    cursor.execute("""
+        SELECT name, symbol, score, verdict, reasons
+        FROM projects
+        ORDER BY score DESC
+    """)
+
     rows = cursor.fetchall()
 
     projects = []
+
     for row in rows:
         projects.append({
-            "id": row["id"],
             "name": row["name"],
             "symbol": row["symbol"],
             "score": row["score"],
@@ -46,6 +51,7 @@ def get_all_projects():
 
     conn.close()
     return projects
+
 
 
 def seed_test_data():
