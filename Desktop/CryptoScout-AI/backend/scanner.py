@@ -28,7 +28,7 @@ def scan_coingecko():
                 "symbol": coin["symbol"]
             }
 
-            analysis = analyze_project(project)
+            analysis = calculate_score(project)
             project.update(analysis)
             project["reasons"] = "Trending on CoinGecko. " + project["reasons"]
 
