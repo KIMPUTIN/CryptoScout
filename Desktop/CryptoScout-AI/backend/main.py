@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from database import init_db, seed_test_data, get_all_projects
 from scheduler import start_scheduler
+from scoring import calculate_score
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -36,7 +38,16 @@ def homepage(request: Request):
 
 @app.get("/projects")
 def api_projects():
-    return get_all_projects()
+    projects = get_all_projects()
+
+    for p in projects:
+        p["score"] = calculate_score(p)
+
+    # Sort by score (highest first)
+    projects.sort(key=lambda x: x["score"], reverse=True)
+
+    return projects
+
 
 
 @app.get("/health")
