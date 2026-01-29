@@ -1,7 +1,7 @@
 
 import requests
 from database import save_project
-from scoring import analyze_project
+from scoring import calculate_score
 
 COINGECKO_TRENDING = "https://api.coingecko.com/api/v3/search/trending"
 
