@@ -102,6 +102,20 @@ def save_project(project):
     cursor = conn.cursor()
 
     try:
+        # Auto-generate verdict if missing
+        score = project.get("score", 0)
+
+        if score >= 75:
+            verdict = "Strong Buy"
+        elif score >= 55:
+            verdict = "Buy"
+        elif score >= 40:
+            verdict = "Hold"
+        else:
+            verdict = "Avoid"
+
+        project["verdict"] = verdict
+
         # Check if project already exists
         cursor.execute("""
             SELECT id FROM projects 
@@ -136,8 +150,11 @@ def save_project(project):
             ))
         
         conn.commit()
+
     except Exception as e:
         print(f"⚠️ Error saving project {project.get('name', 'unknown')}: {e}")
         conn.rollback()
+
     finally:
         conn.close()
+
