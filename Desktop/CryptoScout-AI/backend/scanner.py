@@ -80,6 +80,9 @@ def scan_coingecko():
                 "holders": market.get("circulating_supply", 0)  # proxy
             }
 
+            print("📊 Data:", project["name"], project["market_cap"], project["volume_24h"])
+
+
             analysis = calculate_score(project)
             project.update(analysis)
 
