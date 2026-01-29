@@ -4,7 +4,7 @@ import math
 
 def calculate_score(project):
     """
-    Calculate crypto score (0–100)
+    Calculate crypto score (0–100) and return analysis dict
     """
 
     market_cap = project.get("market_cap", 0)
@@ -30,4 +30,31 @@ def calculate_score(project):
         risk_score
     )
 
-    return round(min(total, 100), 2)
+    final_score = round(min(total, 100), 2)
+
+    # Build reasons
+    reasons = []
+
+    if market_cap > 1_000_000_000:
+        reasons.append("Strong market capitalization")
+
+    if volume > 50_000_000:
+        reasons.append("High trading volume")
+
+    if price_change > 5:
+        reasons.append("Positive price momentum")
+
+    if holders > 50_000:
+        reasons.append("Strong community")
+
+    if price_change < -20:
+        reasons.append("High downside risk")
+
+    if not reasons:
+        reasons.append("Moderate fundamentals")
+
+    return {
+        "score": final_score,
+        "reasons": ", ".join(reasons)
+    }
+
