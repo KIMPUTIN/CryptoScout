@@ -64,18 +64,35 @@ def scan_coingecko():
         # -------------------------
         for coin in markets:
 
-            project_data = {
-                "name": coin["name"],
-                "symbol": coin["symbol"].upper(),
+def safe_number(value, default=0):
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except:
+        return default
 
-                "market_cap": coin.get("market_cap", 0),
-                "volume_24h": coin.get("total_volume", 0),
 
-                "price_change_24h": coin.get("price_change_percentage_24h", 0),
-                "price_change_7d": coin.get("price_change_percentage_7d_in_currency", 0),
+        project_data = {
+            "name": coin["name"],
+            "symbol": coin["symbol"].upper(),
 
-                "market_cap_rank": coin.get("market_cap_rank", 500),
-            }
+            "market_cap": safe_number(coin.get("market_cap")),
+            "volume_24h": safe_number(coin.get("total_volume")),
+
+            "price_change_24h": safe_number(
+            coin.get("price_change_percentage_24h")
+        ),
+
+        "price_change_7d": safe_number(
+            coin.get("price_change_percentage_7d_in_currency")
+        ),
+
+        "market_cap_rank": safe_number(
+            coin.get("market_cap_rank"), 500
+        ),
+    }
+
 
             ai_result = analyze_project(project_data)
 

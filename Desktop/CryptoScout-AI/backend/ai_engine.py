@@ -2,17 +2,26 @@
 import math
 
 
+def safe(value, default=0):
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except:
+        return default
+
+
 def analyze_project(data: dict):
     """
     AI-style analysis engine
     Returns: score, verdict, confidence, reasons
     """
 
-    market_cap = data.get("market_cap", 0)
-    volume = data.get("volume_24h", 0)
-    change_24h = data.get("price_change_24h", 0)
-    change_7d = data.get("price_change_7d", 0)
-    rank = data.get("market_cap_rank", 500)
+    market_cap = safe(data.get("market_cap"))
+    volume = safe(data.get("volume_24h"))
+    change_24h = safe(data.get("price_change_24h"))
+    change_7d = safe(data.get("price_change_7d"))
+    rank = safe(data.get("market_cap_rank"))
 
     # --- Normalize ---
     market_score = min(math.log10(market_cap + 1) * 12, 100)
