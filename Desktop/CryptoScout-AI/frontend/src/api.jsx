@@ -9,6 +9,9 @@ export async function fetchProjects() {
 
 export async function fetchRanking(type) {
   const res = await fetch(`${API_BASE}/rankings/${type}`);
-  if (!res.ok) throw new Error("Failed ranking");
+  
+  if (!res.ok) {
+    throw new Error("Ranking fetch failed");
+  }
   return res.json();
 }
