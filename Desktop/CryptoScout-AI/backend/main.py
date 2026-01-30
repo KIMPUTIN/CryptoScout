@@ -30,7 +30,11 @@ def startup_event():
 # ✅ API only
 @app.get("/projects")
 def api_projects():
-    return get_all_projects()
+    projects = get_all_projects()
+
+    projects.sort(key=lambda x: x["score"], reverse=True)
+
+    return projects
 
 
 @app.get("/health")
