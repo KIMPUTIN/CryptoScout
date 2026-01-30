@@ -5,22 +5,31 @@ function App() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const categories = [
+  "short-term",
+  "long-term",
+  "low-risk",
+  "high-growth"
+];
+  const [category, setCategory] = useState("short-term");
+
 
   useEffect(() => {
-    async function loadProjects() {
-      try {
-        const data = await fetchProjects();
-        setProjects(data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load projects");
-      } finally {
-        setLoading(false);
-      }
+  async function load() {
+    try {
+      setLoading(true);
+      const data = await fetchRanking(category);
+      setProjects(data);
+    } catch {
+      setError("Failed loading rankings");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    loadProjects();
-  }, []);
+  load();
+}, [category]);
+
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
@@ -30,6 +39,27 @@ function App() {
       {loading && <p>Loading projects...</p>}
 
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <div style={{ marginBottom: "20px" }}>
+      {categories.map((cat) => (
+        <button
+        key={cat}
+        onClick={() => setCategory(cat)}
+        style={{
+          marginRight: "10px",
+          padding: "8px 12px",
+          background: category === cat ? "#2563eb" : "#ddd",
+          color: category === cat ? "white" : "black",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer"
+        }}
+        >
+          {cat.replace("-", " ").toUpperCase()}
+        </button>
+        ))}
+      </div>
+
 
       <div
        style={{ 

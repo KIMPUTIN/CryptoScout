@@ -5,6 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db, get_all_projects
 from scheduler import start_scheduler
+from ranking import (
+    get_short_term,
+    get_long_term,
+    get_low_risk,
+    get_high_growth
+)
 
 
 app = FastAPI()
@@ -55,3 +61,22 @@ def trigger_scan():
         "status": "success",
         "total_projects": len(projects)
     }
+
+@app.get("/rankings/short-term")
+def short_term():
+    return get_short_term()
+
+
+@app.get("/rankings/long-term")
+def long_term():
+    return get_long_term()
+
+
+@app.get("/rankings/low-risk")
+def low_risk():
+    return get_low_risk()
+
+
+@app.get("/rankings/high-growth")
+def high_growth():
+    return get_high_growth()
