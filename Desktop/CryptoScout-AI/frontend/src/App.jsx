@@ -31,15 +31,24 @@ function App() {
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <div style={{ display: "grid", gap: "15px" }}>
+      <div
+       style={{ 
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+        gap: "20px",
+        marginTop: "20px",
+      }}
+    >
         {projects.map((project, index) => (
           <div
             key={index}
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              background: "#f9f9f9",
+            style={{ /**/
+              border: "1px solid #e0e0e0",
+              borderRadius: "10px",
+              padding: "20px",
+              background: "#ffffff",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+              transition: "0.2s",
             }}
           >
             <h3>

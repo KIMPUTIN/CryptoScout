@@ -1,6 +1,25 @@
 
 
 body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #f4f6f8;
+}
+
+h1 {
+  margin-bottom: 5px;
+}
+
+p {
+  margin-top: 0;
+  color: #555;
+}
+
+
+
+
+/*
+body {
   background: #0b0f1a;
   color: #e5e7eb;
   font-family: Arial, sans-serif;
@@ -13,4 +32,5 @@ body {
   margin: 12px;
   box-shadow: 0 0 12px rgba(0,255,255,0.1);
 }
-/* Crypto-style ✔️ Dark ✔️ Clean ✔️ */
+/* Crypto-style ✔️ Dark ✔️ Clean ✔️ 
+*/
