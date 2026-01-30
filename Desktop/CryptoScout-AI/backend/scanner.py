@@ -2,12 +2,28 @@
 import requests
 from database import save_project
 from ai_engine import analyze_project
+from scoring import calculate_score
 
 
 TRENDING_URL = "https://api.coingecko.com/api/v3/search/trending"
 MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 
 
+# -------------------------
+# Helper: Safe number parser
+# -------------------------
+def safe_number(value, default=0):
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except:
+        return default
+
+
+# -------------------------
+# Main scanner
+# -------------------------
 def scan_coingecko():
     print("🔍 [SCAN] Starting CoinGecko AI scan")
 
@@ -64,39 +80,34 @@ def scan_coingecko():
         # -------------------------
         for coin in markets:
 
-def safe_number(value, default=0):
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except:
-        return default
+            project_data = {
+                "name": coin.get("name", "Unknown"),
+                "symbol": coin.get("symbol", "").upper(),
 
+                "market_cap": safe_number(coin.get("market_cap")),
+                "volume_24h": safe_number(coin.get("total_volume")),
 
-        project_data = {
-            "name": coin["name"],
-            "symbol": coin["symbol"].upper(),
+                "price_change_24h": safe_number(
+                    coin.get("price_change_percentage_24h")
+                ),
 
-            "market_cap": safe_number(coin.get("market_cap")),
-            "volume_24h": safe_number(coin.get("total_volume")),
+                "price_change_7d": safe_number(
+                    coin.get("price_change_percentage_7d_in_currency")
+                ),
 
-            "price_change_24h": safe_number(
-            coin.get("price_change_percentage_24h")
-        ),
+                "market_cap_rank": safe_number(
+                    coin.get("market_cap_rank"), 500
+                ),
+            }
 
-        "price_change_7d": safe_number(
-            coin.get("price_change_percentage_7d_in_currency")
-        ),
-
-        "market_cap_rank": safe_number(
-            coin.get("market_cap_rank"), 500
-        ),
-    }
-
-
+            # AI analysis
             ai_result = analyze_project(project_data)
 
             project_data.update(ai_result)
+
+            # Optional scoring (if still used)
+            score_data = calculate_score(project_data)
+            project_data.update(score_data)
 
             print("💾 [SAVE]", project_data["name"], project_data["score"])
 
