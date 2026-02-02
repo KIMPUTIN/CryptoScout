@@ -11,16 +11,23 @@ DB_NAME = os.path.join(BASE_DIR, "cryptoscout.db")
 # --------------------------------------------------
 # Initialize Database
 # --------------------------------------------------
+
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Create table
+    # Main table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         name TEXT,
         symbol TEXT,
+
+        market_cap REAL,
+        volume_24h REAL,
+        price_change_24h REAL,
+        price_change_7d REAL,
 
         score REAL,
         verdict TEXT,
@@ -29,15 +36,28 @@ def init_db():
     )
     """)
 
-    # Auto-migrate: add confidence column if missing
-    try:
-        cursor.execute("ALTER TABLE projects ADD COLUMN confidence REAL")
-        print("✅ Added confidence column")
-    except:
-        pass
+    # Auto-migrate missing columns (safe in production)
+    columns = {
+        "market_cap": "REAL",
+        "volume_24h": "REAL",
+        "price_change_24h": "REAL",
+        "price_change_7d": "REAL",
+        "confidence": "REAL"
+    }
+
+    cursor.execute("PRAGMA table_info(projects)")
+    existing = [row[1] for row in cursor.fetchall()]
+
+    for col, col_type in columns.items():
+        if col not in existing:
+            cursor.execute(
+                f"ALTER TABLE projects ADD COLUMN {col} {col_type}"
+            )
+            print(f"✅ Added column: {col}")
 
     conn.commit()
     conn.close()
+
 
 
 # --------------------------------------------------
@@ -52,10 +72,17 @@ def get_all_projects():
         SELECT
             name,
             symbol,
+
+            market_cap,
+            volume_24h,
+            price_change_24h,
+            price_change_7d,
+
             score,
             verdict,
             confidence,
             reasons
+
         FROM projects
         ORDER BY score DESC
     """)
@@ -65,17 +92,12 @@ def get_all_projects():
     projects = []
 
     for row in rows:
-        projects.append({
-            "name": row["name"],
-            "symbol": row["symbol"],
-            "score": row["score"],
-            "verdict": row["verdict"],
-            "confidence": row["confidence"],
-            "reasons": row["reasons"],
-        })
+        projects.append(dict(row))
 
     conn.close()
+
     return projects
+
 
 
 # --------------------------------------------------
@@ -130,14 +152,13 @@ def seed_test_data():
 # Save / Update Project
 # --------------------------------------------------
 def save_project(project):
+    """Insert or update project safely"""
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     try:
-        # Safety defaults
-        score = float(project.get("score", 0))
-        confidence = float(project.get("confidence", 0.5))
-        reasons = project.get("reasons", "")
+        score = project.get("score", 0)
 
         # Auto verdict
         if score >= 75:
@@ -159,49 +180,65 @@ def save_project(project):
 
         existing = cursor.fetchone()
 
-        # -----------------------
-        # UPDATE
-        # -----------------------
+        data = (
+            project.get("market_cap", 0),
+            project.get("volume_24h", 0),
+            project.get("price_change_24h", 0),
+            project.get("price_change_7d", 0),
+
+            project.get("score", 0),
+            project.get("verdict", ""),
+            project.get("confidence", 0),
+            project.get("reasons", ""),
+
+            project["name"],
+            project["symbol"]
+        )
+
         if existing:
 
+            # UPDATE
             cursor.execute("""
-                UPDATE projects
-                SET
+                UPDATE projects SET
+                    market_cap = ?,
+                    volume_24h = ?,
+                    price_change_24h = ?,
+                    price_change_7d = ?,
+
                     score = ?,
                     verdict = ?,
                     confidence = ?,
                     reasons = ?
-                WHERE id = ?
-            """, (
-                score,
-                verdict,
-                confidence,
-                reasons,
-                existing[0]
-            ))
 
-        # -----------------------
-        # INSERT
-        # -----------------------
+                WHERE name = ? AND symbol = ?
+            """, data)
+
         else:
 
+            # INSERT
             cursor.execute("""
-                INSERT INTO projects
-                (name, symbol, score, verdict, confidence, reasons)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                project["name"],
-                project["symbol"],
-                score,
-                verdict,
-                confidence,
-                reasons
-            ))
+                INSERT INTO projects (
+
+                    market_cap,
+                    volume_24h,
+                    price_change_24h,
+                    price_change_7d,
+
+                    score,
+                    verdict,
+                    confidence,
+                    reasons,
+
+                    name,
+                    symbol
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, data)
 
         conn.commit()
 
     except Exception as e:
-        print(f"⚠️ Error saving project {project.get('name', 'unknown')}: {e}")
+        print(f"⚠️ DB Error ({project.get('name')}): {e}")
         conn.rollback()
 
     finally:

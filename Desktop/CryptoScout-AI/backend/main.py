@@ -32,6 +32,11 @@ def startup_event():
     init_db()
     start_scheduler()
 
+    if os.getenv("RESET_DB") == "true":
+        os.remove(DB_NAME)
+        print("🔥 Database reset")
+
+
 
 # ✅ API only
 @app.get("/projects")
