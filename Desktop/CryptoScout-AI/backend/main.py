@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import init_db, get_all_projects
+from database import init_db, seed_test_data, get_all_projects, DB_NAME
 from scheduler import start_scheduler
 from ranking import (
     get_short_term,
@@ -29,12 +29,19 @@ app.add_middleware(
 # ✅ Startup
 @app.on_event("startup")
 def startup_event():
+
+    if os.getenv("RESET_DB") == "true":
+
+        if os.path.exists(DB_NAME):
+            os.remove(DB_NAME)
+            print("🔥 Database reset")
+
+        else:
+            print("ℹ️ No database to reset")
+
     init_db()
     start_scheduler()
 
-    if os.getenv("RESET_DB") == "true":
-        os.remove(DB_NAME)
-        print("🔥 Database reset")
 
 
 
