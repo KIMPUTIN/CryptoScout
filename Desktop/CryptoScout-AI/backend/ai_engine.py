@@ -2,14 +2,17 @@
 import math
 import json
 import os
-import openai
+from openai import OpenAI
+
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 # -------------------------
 # OPENAI CONFIG
 # -------------------------
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 # -------------------------
@@ -17,23 +20,22 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # -------------------------
 
 SYSTEM_PROMPT = """
-You are a professional crypto investment analyst.
+You are CryptoScout AI.
 
-You analyze crypto projects using:
+You analyze crypto projects using market data.
 
-1. Market strength
-2. Liquidity
-3. Momentum
-4. Risk
-4. Fundamentals
-5. Sustainability
+Your task:
+- Evaluate risk
+- Evaluate growth potential
+- Evaluate stability
+- Give clear investment advice
 
-You must be objective.
-No hype.
-No financial advice.
+Return ONLY valid JSON with:
 
-Think step-by-step.
-Return structured results.
+score (0-100)
+verdict (STRONG BUY, BUY, HOLD, AVOID)
+confidence (0-1)
+reasons (string)
 """
 
 # -------------------------
@@ -153,19 +155,47 @@ def technical_score(p):
 
 def analyze_project(data: dict):
 
-    # -------------------------
-    # Normalize input
-    # -------------------------
+    user_prompt = f"""
+Analyze this crypto project:
 
-    project = {
-        "name": data.get("name", "Unknown"),
-        "symbol": data.get("symbol", ""),
-        "market_cap": safe(data.get("market_cap")),
-        "volume_24h": safe(data.get("volume_24h")),
-        "price_change_24h": safe(data.get("price_change_24h")),
-        "price_change_7d": safe(data.get("price_change_7d")),
-        "market_cap_rank": safe(data.get("market_cap_rank"), 500)
-    }
+Name: {data.get("name")}
+Symbol: {data.get("symbol")}
+Market Cap: {data.get("market_cap")}
+Volume 24h: {data.get("volume_24h")}
+Price Change 24h: {data.get("price_change_24h")}
+Price Change 7d: {data.get("price_change_7d")}
+Rank: {data.get("market_cap_rank")}
+
+Return JSON only.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.2
+        )
+
+        content = response.choices[0].message.content
+
+        result = json.loads(content)
+
+        return result
+
+    except Exception as e:
+
+        print("❌ AI ERROR:", e)
+
+        # Fallback (never crash scanner)
+        return {
+            "score": 50,
+            "verdict": "HOLD ⚠️",
+            "confidence": 0.5,
+            "reasons": "AI analysis unavailable"
+        }
 
 
     # -------------------------
