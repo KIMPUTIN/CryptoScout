@@ -95,16 +95,16 @@ def high_growth():
     return get_high_growth()
 
 
-@app.get("/recommend/{profile}")
-def get_recommendation(profile: str):
+#@app.get("/recommend/{profile}")
+#def get_recommendation(profile: str):
 
-    data = recommend(profile)
+#    data = recommend(profile)
 
-    return {
-        "profile": profile,
-        "recommendations": data
-    }
-    
+#    return {
+#        "profile": profile,
+#        "recommendations": data
+#    }
+
 
 @app.get("/recommend/{profile}")
 def get_recommendation(profile: str):
