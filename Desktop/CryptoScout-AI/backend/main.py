@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from recommendation_engine import recommend
+from llm_engine import generate_analysis
 from database import init_db, seed_test_data, get_all_projects, DB_NAME
 from scheduler import start_scheduler
 from ranking import (
@@ -102,4 +103,18 @@ def get_recommendation(profile: str):
     return {
         "profile": profile,
         "recommendations": data
+    }
+    
+
+@app.get("/recommend/{profile}")
+def get_recommendation(profile: str):
+
+    recs = recommend(profile)
+
+    ai = generate_analysis(profile, recs)
+
+    return {
+        "profile": profile,
+        "recommendations": recs,
+        "ai_analysis": ai
     }
