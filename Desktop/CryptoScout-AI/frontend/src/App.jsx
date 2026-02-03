@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { fetchProjects } from "./api";
+import { fetchRanking } from "./api";
 
 function App() {
   const [projects, setProjects] = useState([]);
