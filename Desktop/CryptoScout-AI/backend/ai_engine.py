@@ -36,7 +36,6 @@ Think step-by-step.
 Return structured results.
 """
 
-
 # -------------------------
 # SAFE PARSER
 # -------------------------
