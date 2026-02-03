@@ -2,7 +2,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from recommendation_engine import recommend
 from database import init_db, seed_test_data, get_all_projects, DB_NAME
 from scheduler import start_scheduler
 from ranking import (
@@ -92,3 +92,14 @@ def low_risk():
 @app.get("/rankings/high-growth")
 def high_growth():
     return get_high_growth()
+
+
+@app.get("/recommend/{profile}")
+def get_recommendation(profile: str):
+
+    data = recommend(profile)
+
+    return {
+        "profile": profile,
+        "recommendations": data
+    }
