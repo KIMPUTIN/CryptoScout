@@ -9,7 +9,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 """OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-print("🔑 OPENAI KEY FOUND:", bool(OPENAI_API_KEY))"""
+print("🔑 OPENAI KEY FOUND:", bool(OPENAI_API_KEY)) Debug print"""
 
 
 
