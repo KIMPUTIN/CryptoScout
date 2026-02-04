@@ -109,7 +109,7 @@ Rank: {data.get("market_cap_rank")}
 
         #return response.choice[0].message.content
 
-        raw = response["choices"][0]["message"]["content"]
+        raw = response.choices[0].message.content
 
         result = json.loads(raw)
 
