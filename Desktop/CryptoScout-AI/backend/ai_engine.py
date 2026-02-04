@@ -2,7 +2,6 @@
 import math
 import json
 import os
-#import openai
 from openai import OpenAI
 # import hashlib
 # import time
@@ -14,7 +13,7 @@ from openai import OpenAI
 # -------------------------
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# openai.api_key = os.getenv("OPENAI_API_KEY")
+# openai.api_key = os.getenv("OPENAI_API_KEY") Deprecated
 
 
 # -------------------------
@@ -87,8 +86,12 @@ Market Cap: {data.get("market_cap")}
 7d Change: {data.get("price_change_7d")}
 Rank: {data.get("market_cap_rank")}
 """
+      
+    #def run_ai(prompt):
+    
+      #try:
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -103,6 +106,8 @@ Rank: {data.get("market_cap_rank")}
             temperature=0.3,
             max_tokens=600
         )
+
+        #return response.choice[0].message.content
 
         raw = response["choices"][0]["message"]["content"]
 
@@ -123,3 +128,5 @@ Rank: {data.get("market_cap_rank")}
 
         # Safety fallback (never crash Railway)
         return fallback_analysis(data)
+
+        #return "AI analysis temporarily unavailable."
