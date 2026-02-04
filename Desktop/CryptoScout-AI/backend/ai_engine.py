@@ -2,8 +2,8 @@
 import math
 import json
 import os
-import openai
-#from openai import OpenAI
+#import openai
+from openai import OpenAI
 # import hashlib
 # import time
 
@@ -12,9 +12,9 @@ import openai
 # -------------------------
 # OPENAI CONFIG
 # -------------------------
-#client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 # -------------------------
