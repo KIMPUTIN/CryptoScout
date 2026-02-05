@@ -1,122 +1,232 @@
 
+# backend/scanner.py
+
+import time
+import logging
 import requests
-from database import save_project
+
+from database import save_project, get_all_projects
 from ai_engine import analyze_project
 from scoring import calculate_score
+from confidence_engine import calculate_confidence
 
+
+# --------------------------------------------------
+# CONFIG
+# --------------------------------------------------
 
 TRENDING_URL = "https://api.coingecko.com/api/v3/search/trending"
 MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 
+MAX_AI_CALLS = 8          # limit per scan
+REQUEST_TIMEOUT = 20
+RETRY_LIMIT = 3
 
-# -------------------------
-# Helper: Safe number parser
-# -------------------------
-def safe_number(value, default=0):
-    if value is None:
-        return default
+
+# --------------------------------------------------
+# LOGGING
+# --------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [SCANNER] %(levelname)s: %(message)s"
+)
+
+logger = logging.getLogger("SCANNER")
+
+
+# --------------------------------------------------
+# UTILS
+# --------------------------------------------------
+
+def safe_number(v, default=0):
+
     try:
-        return float(value)
+        return float(v)
     except:
         return default
 
 
-# -------------------------
-# Main scanner
-# -------------------------
+def _fetch(url, params=None):
+
+    for i in range(RETRY_LIMIT):
+
+        try:
+
+            r = requests.get(
+                url,
+                params=params,
+                timeout=REQUEST_TIMEOUT
+            )
+
+            r.raise_for_status()
+
+            return r.json()
+
+
+        except Exception as e:
+
+            logger.warning("Fetch retry %s: %s", i+1, e)
+
+            time.sleep(2 ** i)
+
+
+    raise RuntimeError("Fetch failed")
+
+
+def _already_scanned(symbol, db_cache):
+
+    return any(p["symbol"] == symbol for p in db_cache)
+
+
+# --------------------------------------------------
+# MAIN SCAN ENGINE
+# --------------------------------------------------
+
 def scan_coingecko():
-    print("🔍 [SCAN] Starting CoinGecko AI scan")
 
-    try:
-        # -------------------------
-        # 1. Get trending coins
-        # -------------------------
-        res = requests.get(TRENDING_URL, timeout=15)
-        res.raise_for_status()
+    logger.info("Starting CoinGecko scan")
 
-        data = res.json()
-        coins = data.get("coins", [])
 
-        if not coins:
-            print("⚠️ No trending coins found")
-            return
+    # -----------------------------
+    # Load DB cache
+    # -----------------------------
 
-        ids = []
+    existing = get_all_projects()
 
-        for item in coins:
-            ids.append(item["item"]["id"])
 
-        print(f"🔍 [SCAN] Found {len(ids)} coins")
+    # -----------------------------
+    # Trending
+    # -----------------------------
 
-        # -------------------------
-        # 2. Get market data
-        # -------------------------
-        params = {
-            "vs_currency": "usd",
-            "ids": ",".join(ids),
-            "order": "market_cap_desc",
-            "per_page": 20,
-            "page": 1,
-            "sparkline": False,
-            "price_change_percentage": "24h,7d"
+    data = _fetch(TRENDING_URL)
+
+    coins = data.get("coins", [])
+
+    if not coins:
+
+        logger.warning("No trending coins found")
+        return
+
+
+    ids = [c["item"]["id"] for c in coins]
+
+
+    logger.info("Found %s trending coins", len(ids))
+
+
+    # -----------------------------
+    # Market Data
+    # -----------------------------
+
+    params = {
+        "vs_currency": "usd",
+        "ids": ",".join(ids),
+        "order": "market_cap_desc",
+        "per_page": 20,
+        "page": 1,
+        "sparkline": False,
+        "price_change_percentage": "24h,7d"
+    }
+
+
+    markets = _fetch(MARKETS_URL, params)
+
+
+    if not markets:
+
+        logger.warning("No market data returned")
+        return
+
+
+    # -----------------------------
+    # Analysis Pipeline
+    # -----------------------------
+
+    ai_calls = 0
+
+
+    for coin in markets:
+
+        symbol = coin.get("symbol", "").upper()
+
+        if _already_scanned(symbol, existing):
+            logger.info("Skipping cached %s", symbol)
+            continue
+
+
+        project = {
+
+            "name": coin.get("name", "Unknown"),
+            "symbol": symbol,
+
+            "market_cap": safe_number(coin.get("market_cap")),
+            "volume_24h": safe_number(coin.get("total_volume")),
+
+            "price_change_24h": safe_number(
+                coin.get("price_change_percentage_24h")
+            ),
+
+            "price_change_7d": safe_number(
+                coin.get("price_change_percentage_7d_in_currency")
+            ),
+
+            "market_cap_rank": safe_number(
+                coin.get("market_cap_rank"), 500
+            ),
         }
 
-        market_res = requests.get(
-            MARKETS_URL,
-            params=params,
-            timeout=20
-        )
 
-        market_res.raise_for_status()
+        # -----------------------------
+        # AI (Limited)
+        # -----------------------------
 
-        markets = market_res.json()
+        if ai_calls < MAX_AI_CALLS:
 
-        if not markets:
-            print("⚠️ No market data returned")
-            return
+            ai = analyze_project(project)
 
-        # -------------------------
-        # 3. Run AI analysis
-        # -------------------------
-        for coin in markets:
+            project.update(ai)
 
-            project_data = {
-                "name": coin.get("name", "Unknown"),
-                "symbol": coin.get("symbol", "").upper(),
+            ai_calls += 1
 
-                "market_cap": safe_number(coin.get("market_cap")),
-                "volume_24h": safe_number(coin.get("total_volume")),
+        else:
 
-                "price_change_24h": safe_number(
-                    coin.get("price_change_percentage_24h")
-                ),
+            logger.info("AI limit reached, fallback used")
 
-                "price_change_7d": safe_number(
-                    coin.get("price_change_percentage_7d_in_currency")
-                ),
+            project["confidence"] = 0.4
+            project["verdict"] = "HOLD"
+            project["ai_analysis"] = "AI budget limit"
+            project["strategy"] = "Wait"
 
-                "market_cap_rank": safe_number(
-                    coin.get("market_cap_rank"), 500
-                ),
-            }
 
-            # AI analysis
-            ai_result = analyze_project(project_data)
+        # -----------------------------
+        # Scoring
+        # -----------------------------
 
-            project_data.update(ai_result)
+        score_data = calculate_score(project)
 
-            # Optional scoring (if still used)
-            score_data = calculate_score(project_data)
-            project_data.update(score_data)
+        project.update(score_data)
 
-            print("💾 [SAVE]", project_data["name"], project_data["score"])
 
-            save_project(project_data)
+        # -----------------------------
+        # Confidence
+        # -----------------------------
 
-        print("✅ [SCAN] AI Scan Completed")
+        conf = calculate_confidence(project, score_data)
 
-    except requests.exceptions.HTTPError as e:
-        print("❌ CoinGecko HTTP Error:", e)
+        project["confidence"] = conf
 
-    except Exception as e:
-        print("❌ Scan Error:", e)
+
+        # -----------------------------
+        # Save
+        # -----------------------------
+
+        logger.info("Saving %s | Score %.2f | Conf %.2f",
+                    project["name"],
+                    project["score"],
+                    project["confidence"])
+
+        save_project(project)
+
+
+    logger.info("Scan completed")
