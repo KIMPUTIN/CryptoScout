@@ -1,5 +1,7 @@
 
-const API_BASE = "https://cryptoscout-production.up.railway.app";
+//const API_BASE = "https://cryptoscout-production.up.railway.app";
+const API_BASE = import.meta.env.VITE_API_URL;
+
 
 console.log("API TEST VERSION 2"); // <--- ADD THIS
 
