@@ -2,23 +2,55 @@
 # backend/llm_engine.py
 
 import os
-import requests
+import json
+import time
+import logging
+import re
 
+from openai import OpenAI
+
+
+# --------------------------------------------------
+# CONFIG
+# --------------------------------------------------
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-"""OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-print("🔑 OPENAI KEY FOUND:", bool(OPENAI_API_KEY)) Debug print"""
+logger = logging.getLogger("LLM_ENGINE")
 
 
+MAX_RETRIES = 2
 
-def generate_analysis(profile, recommendations):
+
+# --------------------------------------------------
+# UTILS
+# --------------------------------------------------
+
+def _extract_json(text: str):
+
+    if not text:
+        raise ValueError("Empty response")
+
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+
+    if not match:
+        raise ValueError("No JSON found")
+
+    return json.loads(match.group())
+
+
+# --------------------------------------------------
+# MAIN LLM INTERFACE
+# --------------------------------------------------
+
+def generate_analysis(profile: str, recommendations: list) -> dict:
 
     if not OPENAI_API_KEY:
         return {
-            "summary": "LLM disabled (no API key)",
-            "risk_warning": "N/A",
+            "summary": "AI disabled",
+            "risk_warning": "No API key",
             "strategy": "Rule-based only"
         }
 
@@ -26,51 +58,69 @@ def generate_analysis(profile, recommendations):
     prompt = f"""
 You are a professional crypto investment analyst.
 
+Return ONLY valid JSON.
+
+Format:
+
+{{
+  "summary": string,
+  "risk_warning": string,
+  "strategy": string
+}}
+
 User profile: {profile}
 
 Portfolio:
-{recommendations}
-
-Explain:
-1. Why these assets were chosen
-2. Main risks
-3. Market outlook
-4. Strategy advice
-
-Be concise and practical.
+{json.dumps(recommendations, indent=2)}
 """
 
 
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    for attempt in range(1, MAX_RETRIES + 1):
+
+        try:
+
+            response = client.chat.completions.create(
+
+                model="gpt-4o-mini",
+
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a senior crypto analyst. Return ONLY JSON."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+
+                temperature=0.2,
+                max_tokens=400,
+                timeout=30
+            )
 
 
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": "You are a crypto analyst."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.3
-    }
+            raw = response.choices[0].message.content.strip()
+
+            result = _extract_json(raw)
+
+            return result
 
 
-    res = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=30
-    )
+        except Exception as e:
+
+            logger.warning(
+                "LLM attempt %s failed: %s",
+                attempt,
+                str(e)
+            )
+
+            time.sleep(1)
 
 
-    data = res.json()
-
-    content = data["choices"][0]["message"]["content"]
-
+    # Final fallback
     return {
-        "summary": content,
-        "risk_warning": "Auto-generated",
-        "strategy": "Hybrid AI"
+        "summary": "AI temporarily unavailable",
+        "risk_warning": "Use caution",
+        "strategy": "Hold"
     }
