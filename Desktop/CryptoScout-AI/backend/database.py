@@ -38,12 +38,19 @@ def init_db():
 
     # Auto-migrate missing columns (safe in production)
     columns = {
-        "market_cap": "REAL",
-        "volume_24h": "REAL",
-        "price_change_24h": "REAL",
-        "price_change_7d": "REAL",
-        "confidence": "REAL"
+    "market_cap": "REAL",
+    "volume_24h": "REAL",
+    "price_change_24h": "REAL",
+    "price_change_7d": "REAL",
+    "confidence": "REAL",
+
+    # Phase 2 signals
+    "sentiment_score": "REAL",
+    "social_volume": "INTEGER",
+    "trend_score": "REAL",
+    "last_updated": "TEXT"
     }
+
 
     cursor.execute("PRAGMA table_info(projects)")
     existing = [row[1] for row in cursor.fetchall()]
@@ -81,7 +88,12 @@ def get_all_projects():
             score,
             verdict,
             confidence,
-            reasons
+            reasons,
+            sentiment_score,
+            social_volume,
+            trend_score,
+            last_updated,
+
 
         FROM projects
         ORDER BY score DESC
@@ -180,6 +192,10 @@ def save_project(project):
 
         existing = cursor.fetchone()
 
+        from datetime import datetime
+
+        now = datetime.utcnow().isoformat()
+
         data = (
             project.get("market_cap", 0),
             project.get("volume_24h", 0),
@@ -191,13 +207,19 @@ def save_project(project):
             project.get("confidence", 0),
             project.get("reasons", ""),
 
+             # Phase 2 fields
+            project.get("sentiment_score", 0),
+            project.get("social_volume", 0),
+            project.get("trend_score", 0),
+            now,
+
             project["name"],
             project["symbol"]
         )
 
         if existing:
 
-            # UPDATE
+            # UPDATE SQL Querries
             cursor.execute("""
                 UPDATE projects SET
                     market_cap = ?,
@@ -208,7 +230,12 @@ def save_project(project):
                     score = ?,
                     verdict = ?,
                     confidence = ?,
-                    reasons = ?
+                    reasons = ?,
+
+                    sentiment_score = ?,
+                    social_volume = ?,
+                    trend_score = ?,
+                    last_updated = ?
 
                 WHERE name = ? AND symbol = ?
             """, data)
@@ -229,10 +256,15 @@ def save_project(project):
                     confidence,
                     reasons,
 
+                    sentiment_score,
+                    social_volume,
+                    trend_score,
+                    last_updated,
+
                     name,
                     symbol
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, data)
 
         conn.commit()
