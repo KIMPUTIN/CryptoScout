@@ -92,7 +92,7 @@ def get_all_projects():
             sentiment_score,
             social_volume,
             trend_score,
-            last_updated,
+            last_updated
 
 
         FROM projects
