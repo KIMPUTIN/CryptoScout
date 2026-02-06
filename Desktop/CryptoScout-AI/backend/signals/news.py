@@ -6,6 +6,8 @@ import requests
 import logging
 from collections import defaultdict
 from textblob import TextBlob
+from signals.cache import get, set
+
 
 
 logger = logging.getLogger("NEWS_SIGNAL")
@@ -16,6 +18,14 @@ BASE_URL = "https://gnews.io/api/v4/search"
 
 
 def fetch_news_impact(symbols, limit=10):
+
+	cache_key = "news_impact"
+
+	cached = get(cache_key)
+
+	if cached:
+    	return cached
+
     """
     Returns:
     {
@@ -80,6 +90,9 @@ def fetch_news_impact(symbols, limit=10):
 
         if m > 0:
             results[sym]["score"] /= m
+
+
+    set(cache_key, results)
 
 
     return results

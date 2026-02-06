@@ -22,7 +22,7 @@ from signals.news import fetch_news_impact
 TRENDING_URL = "https://api.coingecko.com/api/v3/search/trending"
 MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 
-MAX_AI_CALLS = 8          # limit per scan
+MAX_AI_CALLS = 5          # limit per scan
 REQUEST_TIMEOUT = 20
 RETRY_LIMIT = 3
 
@@ -263,6 +263,10 @@ def scan_coingecko():
         # -----------------------------
         # Save
         # -----------------------------
+
+        import time    #Newly included
+        time.sleep(0.5)
+
 
         logger.info("Saving %s | Score %.2f | Conf %.2f",
                     project["name"],

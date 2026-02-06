@@ -6,6 +6,8 @@ import requests
 import logging
 from collections import defaultdict
 from textblob import TextBlob
+from signals.cache import get, set
+
 
 
 logger = logging.getLogger("REDDIT_SIGNAL")
@@ -19,6 +21,14 @@ BASE_URL = "https://reddit-scraper2.p.rapidapi.com/search"
 
 
 def fetch_sentiment(symbols, limit=50):
+
+	cache_key = "reddit_sentiment"
+
+	cached = get(cache_key)
+
+	if cached:
+    	return cached
+
 
     if not RAPID_KEY:
         logger.warning("Missing RAPIDAPI_KEY")
@@ -82,5 +92,6 @@ def fetch_sentiment(symbols, limit=50):
         if m > 0:
             results[sym]["score"] /= m
 
+    set(cache_key, results)
 
     return results
