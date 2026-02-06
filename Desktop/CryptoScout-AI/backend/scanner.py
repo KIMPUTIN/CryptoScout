@@ -9,6 +9,8 @@ from database import save_project, get_all_projects
 from ai_engine import analyze_project
 from scoring import calculate_score
 from confidence_engine import calculate_confidence
+from signals.reddit import fetch_sentiment
+
 
 
 # --------------------------------------------------
@@ -132,6 +134,15 @@ def scan_coingecko():
 
     markets = _fetch(MARKETS_URL, params)
 
+    # -----------------------------
+    # Reddit Sentiment
+    # -----------------------------
+
+    symbols = [c.get("symbol", "").upper() for c in markets]
+
+    sentiment_data = fetch_sentiment(symbols)
+
+
 
     if not markets:
 
@@ -215,6 +226,17 @@ def scan_coingecko():
         conf = calculate_confidence(project, score_data)
 
         project["confidence"] = conf
+        
+
+        # -----------------------------
+        # Social Signals
+        # -----------------------------
+
+        sent = sentiment_data.get(symbol, {})
+
+        project["sentiment_score"] = round(sent.get("score", 0), 3)
+        project["social_volume"] = sent.get("mentions", 0)
+
 
 
         # -----------------------------
