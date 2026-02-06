@@ -48,7 +48,8 @@ def init_db():
     "sentiment_score": "REAL",
     "social_volume": "INTEGER",
     "trend_score": "REAL",
-    "last_updated": "TEXT"
+    "last_updated": "TEXT",
+    "news_volume": "INTEGER"
     }
 
 
@@ -92,7 +93,8 @@ def get_all_projects():
             sentiment_score,
             social_volume,
             trend_score,
-            last_updated
+            last_updated,
+            news_volume
 
 
         FROM projects
@@ -211,6 +213,7 @@ def save_project(project):
             project.get("sentiment_score", 0),
             project.get("social_volume", 0),
             project.get("trend_score", 0),
+            project.get("news_volume", 0),
             now,
 
             project["name"],
@@ -235,7 +238,8 @@ def save_project(project):
                     sentiment_score = ?,
                     social_volume = ?,
                     trend_score = ?,
-                    last_updated = ?
+                    last_updated = ?,
+                    news_volume = ?
 
                 WHERE name = ? AND symbol = ?
             """, data)
@@ -260,11 +264,12 @@ def save_project(project):
                     social_volume,
                     trend_score,
                     last_updated,
+                    news_volume,
 
                     name,
                     symbol
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, data)
 
         conn.commit()

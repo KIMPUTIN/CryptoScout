@@ -10,6 +10,8 @@ from ai_engine import analyze_project
 from scoring import calculate_score
 from confidence_engine import calculate_confidence
 from signals.reddit import fetch_sentiment
+from signals.news import fetch_news_impact
+
 
 
 
@@ -143,6 +145,14 @@ def scan_coingecko():
     sentiment_data = fetch_sentiment(symbols)
 
 
+    # -----------------------------
+    # News Impact
+    # -----------------------------
+
+    news_data = fetch_news_impact(symbols)
+
+
+
 
     if not markets:
 
@@ -226,7 +236,7 @@ def scan_coingecko():
         conf = calculate_confidence(project, score_data)
 
         project["confidence"] = conf
-        
+
 
         # -----------------------------
         # Social Signals
@@ -236,6 +246,17 @@ def scan_coingecko():
 
         project["sentiment_score"] = round(sent.get("score", 0), 3)
         project["social_volume"] = sent.get("mentions", 0)
+
+
+        # -----------------------------
+        # News Signals
+        # -----------------------------
+
+        news = news_data.get(symbol, {})
+
+        project["trend_score"] = round(news.get("score", 0), 3)
+        project["news_volume"] = news.get("mentions", 0)
+
 
 
 
