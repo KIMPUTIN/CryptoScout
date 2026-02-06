@@ -1,6 +1,7 @@
 
 # backend/signals/reddit.py
 
+import os
 import requests
 import logging
 from collections import defaultdict
@@ -9,24 +10,31 @@ from textblob import TextBlob
 
 logger = logging.getLogger("REDDIT_SIGNAL")
 
-PUSHSHIFT_URL = "https://api.pushshift.io/reddit/search/submission/"
+RAPID_KEY = os.getenv("RAPIDAPI_KEY")
+
+RAPID_HOST = "reddit-scraper2.p.rapidapi.com"
 
 
-def fetch_sentiment(symbols, limit=100):
-    """
-    Fetch Reddit sentiment using Pushshift (no auth)
+BASE_URL = "https://reddit-scraper2.p.rapidapi.com/search"
 
-    Returns:
-    {
-      "BTC": {"score": 0.15, "mentions": 42},
-      ...
-    }
-    """
+
+def fetch_sentiment(symbols, limit=50):
+
+    if not RAPID_KEY:
+        logger.warning("Missing RAPIDAPI_KEY")
+        return {}
+
 
     results = defaultdict(lambda: {
         "score": 0,
         "mentions": 0
     })
+
+
+    headers = {
+        "X-RapidAPI-Key": RAPID_KEY,
+        "X-RapidAPI-Host": RAPID_HOST
+    }
 
 
     for sym in symbols:
@@ -35,13 +43,13 @@ def fetch_sentiment(symbols, limit=100):
 
             params = {
                 "q": sym,
-                "size": limit,
-                "sort": "desc",
-                "sort_type": "created_utc"
+                "sort": "new",
+                "limit": limit
             }
 
             r = requests.get(
-                PUSHSHIFT_URL,
+                BASE_URL,
+                headers=headers,
                 params=params,
                 timeout=20
             )
@@ -53,7 +61,7 @@ def fetch_sentiment(symbols, limit=100):
 
             for post in data:
 
-                text = f"{post.get('title','')} {post.get('selftext','')}"
+                text = f"{post.get('title','')} {post.get('text','')}"
 
                 sentiment = TextBlob(text).sentiment.polarity
 
@@ -63,7 +71,7 @@ def fetch_sentiment(symbols, limit=100):
 
         except Exception as e:
 
-            logger.warning("Pushshift error %s: %s", sym, e)
+            logger.warning("RapidAPI error %s: %s", sym, e)
 
 
     # Normalize
