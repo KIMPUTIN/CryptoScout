@@ -1,6 +1,8 @@
 
 import { useEffect, useState } from "react";
 import { fetchRanking } from "./api";
+import { useEffect } from "react";
+
 
 function App() {
   const [projects, setProjects] = useState([]);
@@ -28,8 +30,47 @@ function App() {
     }
   }
 
+/* insert to line 44*/
+  useEffect(() => {
+  window.google?.accounts.id.initialize({
+    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    callback: handleCredentialResponse,
+  });
+
+  window.google?.accounts.id.renderButton(
+    document.getElementById("googleSignInDiv"),
+    { theme: "outline", size: "large" }
+  );
+}, []);
+
+
   load();
 }, [category]);
+
+
+/* Insert up tp Login failed */
+async function handleCredentialResponse(response) {
+  const token = response.credential;
+
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/auth/google`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }
+  );
+
+  const data = await res.json();
+
+  if (data.token) {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    alert("Login successful");
+  } else {
+    alert("Login failed");
+  }
+}
 
 
   return (
@@ -37,9 +78,15 @@ function App() {
       <h1>🚀 CryptoScout AI</h1>
       <p>AI Crypto Discovery Engine</p>
 
+      <div id="googleSignInDiv" style={{ marginBottom: "20px" }}></div>
+
       {loading && <p>Loading projects...</p>}
 
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      
+      
+
 
       <div style={{ marginBottom: "20px" }}>
       {categories.map((cat) => (
