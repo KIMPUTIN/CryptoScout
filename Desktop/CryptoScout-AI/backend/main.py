@@ -1,4 +1,6 @@
 
+
+from fastapi import Header, HTTPException
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +14,9 @@ from ranking import (
     get_low_risk,
     get_high_growth
 )
+
+
+ADMIN_KEY = os.getenv("ADMIN_KEY")
 
 
 app = FastAPI()
@@ -61,9 +66,14 @@ def health():
     return {"status": "ok"}
 
 
+
 @app.post("/scan/trigger")
 @app.get("/scan/trigger")
-def trigger_scan():
+def trigger_scan(x_admin_key: str = Header(None)):
+
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     from scanner import scan_coingecko
 
     scan_coingecko()
