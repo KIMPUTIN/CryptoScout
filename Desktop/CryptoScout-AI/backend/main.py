@@ -14,9 +14,17 @@ from ranking import (
     get_low_risk,
     get_high_growth
 )
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from jose import jwt
+from database import get_or_create_user
+from database import get_user_by_id
+from fastapi import Header, HTTPException
 
 
 ADMIN_KEY = os.getenv("ADMIN_KEY")
+JWT_SECRET = os.getenv("JWT_SECRET")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 
 app = FastAPI()
@@ -128,3 +136,58 @@ def get_recommendation(profile: str):
         "recommendations": recs,
         "ai_analysis": ai
     }
+
+
+@app.post("/auth/google")
+async def google_login(payload: dict):
+
+  token = payload.get("token")
+
+  try:
+    idinfo = id_token.verify_oauth2_token(
+      token,
+      google_requests.Request(),
+      GOOGLE_CLIENT_ID
+    )
+
+    google_id = idinfo["sub"]
+    email = idinfo.get("email")
+    name = idinfo.get("name")
+    picture = idinfo.get("picture")
+
+    user = get_or_create_user(
+      google_id,
+      email,
+      name,
+      picture
+    )
+
+    session_token = jwt.encode(
+      {"user_id": user["id"]},
+      JWT_SECRET,
+      algorithm="HS256"
+    )
+
+    return {
+      "user": user,
+      "token": session_token
+    }
+
+  except Exception as e:
+    return {"error": str(e)}
+
+
+@app.get("/me")
+def get_me(authorization: str = Header(None)):
+
+  if not authorization:
+    raise HTTPException(status_code=401)
+
+  token = authorization.replace("Bearer ", "")
+
+  try:
+    data = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    user = get_user_by_id(data["user_id"])
+    return user
+  except:
+    raise HTTPException(status_code=401)

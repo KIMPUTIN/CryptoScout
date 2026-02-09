@@ -37,6 +37,20 @@ def init_db():
   )
   """)
 
+  # Users table (Google OAuth)
+  cursor.execute("""
+  CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  google_id TEXT UNIQUE,
+  email TEXT,
+  name TEXT,
+  picture TEXT,
+  created_at TEXT
+)
+""")
+
+
   # Auto-migrate missing columns (safe in production)
   columns = {
   "market_cap": "REAL",
@@ -282,3 +296,59 @@ def save_project(project):
   finally:
     conn.close()
 
+
+#Create or Get User
+def get_or_create_user(google_id, email, name, picture):
+  conn = sqlite3.connect(DB_NAME)
+  conn.row_factory = sqlite3.Row
+  cursor = conn.cursor()
+
+  cursor.execute("""
+    SELECT * FROM users WHERE google_id = ?
+  """, (google_id,))
+
+  existing = cursor.fetchone()
+
+  if existing:
+    conn.close()
+    return dict(existing)
+
+  from datetime import datetime
+
+  now = datetime.utcnow().isoformat()
+
+  cursor.execute("""
+    INSERT INTO users (google_id, email, name, picture, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  """, (google_id, email, name, picture, now))
+
+  conn.commit()
+
+  cursor.execute("""
+    SELECT * FROM users WHERE google_id = ?
+  """, (google_id,))
+
+  user = cursor.fetchone()
+
+  conn.close()
+
+  return dict(user)
+
+
+#Get User by ID
+def get_user_by_id(user_id):
+  conn = sqlite3.connect(DB_NAME)
+  conn.row_factory = sqlite3.Row
+  cursor = conn.cursor()
+
+  cursor.execute("""
+    SELECT * FROM users WHERE id = ?
+  """, (user_id,))
+
+  user = cursor.fetchone()
+  conn.close()
+
+  if user:
+    return dict(user)
+
+  return None
