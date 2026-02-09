@@ -1,4 +1,5 @@
 
+
 # backend/signals/news.py
 
 import os
@@ -19,12 +20,12 @@ BASE_URL = "https://gnews.io/api/v4/search"
 
 def fetch_news_impact(symbols, limit=10):
 
-	cache_key = "news_impact"
+    cache_key = "news_impact"
 
-	cached = get(cache_key)
+    cached = get(cache_key)
 
-	if cached:
-    	return cached
+    if cached:
+        return cached
 
     """
     Returns:

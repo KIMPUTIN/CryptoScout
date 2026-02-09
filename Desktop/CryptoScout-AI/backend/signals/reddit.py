@@ -1,4 +1,5 @@
 
+
 # backend/signals/reddit.py
 
 import os
@@ -22,12 +23,12 @@ BASE_URL = "https://reddit-scraper2.p.rapidapi.com/search"
 
 def fetch_sentiment(symbols, limit=50):
 
-	cache_key = "reddit_sentiment"
+    cache_key = "reddit_sentiment"
 
-	cached = get(cache_key)
+    cached = get(cache_key)
 
-	if cached:
-    	return cached
+    if cached:
+        return cached
 
 
     if not RAPID_KEY:
