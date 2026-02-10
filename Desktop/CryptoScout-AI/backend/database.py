@@ -2,6 +2,7 @@
 
 import sqlite3
 import os
+from datetime import datetime
 
 
 # Paths
@@ -66,6 +67,22 @@ def init_db():
   "last_updated": "TEXT",
   "news_volume": "INTEGER"
   }
+
+  #-----------
+  # Watchlist table
+  cursor.execute("""
+  CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    symbol TEXT,
+    name TEXT,
+    score_at_add REAL,
+    sentiment_at_add REAL,
+    trend_at_add REAL,
+    created_at TEXT
+)
+""")
+
 
 
   cursor.execute("PRAGMA table_info(projects)")
@@ -175,6 +192,67 @@ def seed_test_data():
     print(f"📊 Database already has {count} projects, skipping seed")
 
   conn.close()
+
+
+# ---------------------------------------
+
+def add_to_watchlist(user_id, project):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO watchlist (
+            user_id,
+            symbol,
+            name,
+            score_at_add,
+            sentiment_at_add,
+            trend_at_add,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        user_id,
+        project.get("symbol"),
+        project.get("name"),
+        project.get("score"),
+        project.get("sentiment_score", 0),
+        project.get("trend_score", 0),
+        datetime.utcnow().isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def get_watchlist(user_id):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM watchlist
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+    """, (user_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def remove_from_watchlist(user_id, symbol):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM watchlist
+        WHERE user_id = ? AND symbol = ?
+    """, (user_id, symbol))
+
+    conn.commit()
+    conn.close()
+
 
 
 # --------------------------------------------------

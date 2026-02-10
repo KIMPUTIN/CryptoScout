@@ -20,6 +20,11 @@ from jose import jwt
 from database import get_or_create_user
 from database import get_user_by_id
 from fastapi import Header, HTTPException
+from fastapi import Depends, HTTPException
+from database import add_to_watchlist, get_watchlist, remove_from_watchlist
+from auth import get_current_user
+from database import get_all_projects
+
 
 
 ADMIN_KEY = os.getenv("ADMIN_KEY")
@@ -191,3 +196,29 @@ def get_me(authorization: str = Header(None)):
     return user
   except:
     raise HTTPException(status_code=401)
+
+# --------------------------------------------------
+@app.post("/watchlist/add/{symbol}")
+def api_add_watchlist(symbol: str, user=Depends(get_current_user)):
+
+    projects = get_all_projects()
+
+    project = next((p for p in projects if p["symbol"] == symbol.upper()), None)
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    add_to_watchlist(user["id"], project)
+
+    return {"status": "added", "symbol": symbol}
+
+
+@app.get("/watchlist")
+def api_get_watchlist(user=Depends(get_current_user)):
+    return get_watchlist(user["id"])
+
+
+@app.delete("/watchlist/{symbol}")
+def api_remove_watchlist(symbol: str, user=Depends(get_current_user)):
+    remove_from_watchlist(user["id"], symbol)
+    return {"status": "removed", "symbol": symbol}
