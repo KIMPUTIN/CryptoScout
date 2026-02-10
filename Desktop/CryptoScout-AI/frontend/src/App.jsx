@@ -8,7 +8,6 @@ function App() {
     const [error, setError] = useState(null);
 
     const categories = ["short-term", "long-term", "low-risk", "high-growth"];
-
     const [category, setCategory] = useState("short-term");
 
     // Load rankings
@@ -16,9 +15,11 @@ function App() {
         async function load() {
             try {
                 setLoading(true);
+                setError(null);
+
                 const data = await fetchRanking(category);
                 setProjects(data);
-            } catch {
+            } catch (err) {
                 setError("Failed loading rankings");
             } finally {
                 setLoading(false);
@@ -30,36 +31,43 @@ function App() {
 
     // Google Sign-In setup
     useEffect(() => {
-        if (window.google) {
-            window.google.accounts.id.initialize({
-                client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse,
-            });
+        if (!window.google) return;
 
-            window.google.accounts.id.renderButton(
-                document.getElementById("googleSignInDiv"),
-                { theme: "outline", size: "large" }
-            );
-        }
+        window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            callback: handleCredentialResponse,
+        });
+
+        window.google.accounts.id.renderButton(
+            document.getElementById("googleSignInDiv"),
+            { theme: "outline", size: "large" }
+        );
     }, []);
 
     async function handleCredentialResponse(response) {
-        const token = response.credential;
+        try {
+            const token = response.credential;
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/google`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-        });
+            const res = await fetch(
+                `${import.meta.env.VITE_API_URL}/auth/google`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token }),
+                }
+            );
 
-        const data = await res.json();
+            const data = await res.json();
 
-        if (data.token) {
-            localStorage.setItem("token", data.token);
-            localStorage.setItem("user", JSON.stringify(data.user));
-            alert("Login successful");
-        } else {
-            alert("Login failed");
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("user", JSON.stringify(data.user));
+                alert("Login successful");
+            } else {
+                alert("Login failed");
+            }
+        } catch {
+            alert("Authentication error");
         }
     }
 
@@ -68,7 +76,7 @@ function App() {
             <h1>🚀 CryptoScout AI</h1>
             <p>AI Crypto Discovery Engine</p>
 
-            <div id="googleSignInDiv" style={{ marginBottom: "20px" }}></div>
+            <div id="googleSignInDiv" style={{ marginBottom: "20px" }} />
 
             {loading && <p>Loading projects...</p>}
             {error && <p style={{ color: "red" }}>{error}</p>}
@@ -102,9 +110,9 @@ function App() {
                     marginTop: "20px",
                 }}
             >
-                {projects.map((project, index) => (
+                {projects.map((project) => (
                     <div
-                        key={index}
+                        key={project.symbol}
                         style={{
                             border: "1px solid #e0e0e0",
                             borderRadius: "10px",
@@ -124,30 +132,29 @@ function App() {
                             <strong>Verdict:</strong> {project.verdict}
                         </p>
                         <p>{project.reasons}</p>
+
+                        <button
+                            onClick={async () => {
+                                const token =
+                                    localStorage.getItem("token");
+
+                                await fetch(
+                                    `${import.meta.env.VITE_API_URL}/watchlist/add/${project.symbol}`,
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            Authorization: `Bearer ${token}`,
+                                        },
+                                    }
+                                );
+
+                                alert("Added to watchlist");
+                            }}
+                        >
+                            ⭐ Add to Watchlist
+                        </button>
                     </div>
                 ))}
-
-                <button
-                    onClick={async () => {
-                        const token = localStorage.getItem("token");
-
-                        await fetch(
-                            `${import.meta.env.VITE_API_URL}/watchlist/add/${
-                                project.symbol
-                            }`,
-                            {
-                                method: "POST",
-                                headers: {
-                                    Authorization: `Bearer ${token}`,
-                                },
-                            }
-                        );
-
-                        alert("Added to watchlist");
-                    }}
-                >
-                    ⭐ Add to Watchlist
-                </button>
             </div>
         </div>
     );
