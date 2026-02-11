@@ -11,4 +11,5 @@ python-dotenv
 textblob
 google-auth
 python-jose
+PyJWT
 
