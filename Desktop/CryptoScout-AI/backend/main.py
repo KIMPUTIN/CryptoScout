@@ -22,6 +22,20 @@ from ranking import (
 
 from scheduler import start_scheduler
 from auth import get_current_user
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from jose import jwt
+from database import get_or_create_user
+
+
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+# -------------------
+# Routes
+# -------------------
+
 
 app = FastAPI()
 
@@ -123,3 +137,49 @@ def api_get_watchlist(user=Depends(get_current_user)):
 def api_remove_watchlist(symbol: str, user=Depends(get_current_user)):
     remove_from_watchlist(user["id"], symbol)
     return {"status": "removed", "symbol": symbol}
+
+
+# --------------------
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+
+@app.post("/auth/google")
+async def google_login(payload: dict):
+
+    token = payload.get("token")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        google_id = idinfo["sub"]
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+        picture = idinfo.get("picture")
+
+        user = get_or_create_user(
+            google_id,
+            email,
+            name,
+            picture
+        )
+
+        session_token = jwt.encode(
+            {"user_id": user["id"]},
+            JWT_SECRET,
+            algorithm="HS256"
+        )
+
+        return {
+            "user": user,
+            "token": session_token
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
