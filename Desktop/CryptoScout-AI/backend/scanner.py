@@ -69,14 +69,19 @@ def _fetch(url, params=None):
             return r.json()
 
 
+        except requests.exceptions.HTTPError as e:
+            if r.status_code == 429:
+                logger.warning("Rate limited. Backing off...")
+                time.sleep(5 * (i + 1))
+            else:
+                logger.warning("HTTP error: %s", e)
+                time.sleep(2 ** i)
+
         except Exception as e:
-
-            logger.warning("Fetch retry %s: %s", i+1, e)
-
+            logger.warning("Fetch retry %s: %s", i + 1, e)
             time.sleep(2 ** i)
 
-
-    print("⚠️ Fetch failed — keeping previous data")
+    logger.error("Fetch failed completely")
     return None
 
 
@@ -130,9 +135,32 @@ def scan_coingecko():
 
     markets = _fetch(MARKETS_URL, params)
 
+    # -----Outdated
+
+    #if not markets:
+    #    logger.warning("Skipping scan — CoinGecko rate limited")
+    #    return
+
+    # ----------
+
+
+    # ---New code instead
     if not markets:
-        logger.warning("Market fetch failed — skipping scan")
-        return
+        logger.warning("Using cached database data")
+        markets = [
+            {
+                "name": p["name"],
+                "symbol": p["symbol"],
+                "market_cap": p.get("market_cap"),
+                "total_volume": p.get("volume_24h"),
+                "price_change_percentage_24h": p.get("price_change_24h"),
+                "price_change_percentage_7d_in_currency": p.get("price_change_7d"),
+                "market_cap_rank": 500
+            }
+            for p in existing
+        ]
+    # --------------------
+
 
     # -----------------------------
     # Reddit Sentiment
