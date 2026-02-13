@@ -94,38 +94,30 @@ def scan_coingecko():
 
     logger.info("Starting CoinGecko scan")
 
-
-    # -----------------------------
-    # Load DB cache
-    # -----------------------------
-
     existing = get_all_projects()
-
 
     # -----------------------------
     # Trending
     # -----------------------------
-
     data = _fetch(TRENDING_URL)
+
+    if not data:
+        logger.warning("Trending fetch failed — skipping scan")
+        return
 
     coins = data.get("coins", [])
 
     if not coins:
-
         logger.warning("No trending coins found")
         return
 
-
     ids = [c["item"]["id"] for c in coins]
 
-
     logger.info("Found %s trending coins", len(ids))
-
 
     # -----------------------------
     # Market Data
     # -----------------------------
-
     params = {
         "vs_currency": "usd",
         "ids": ",".join(ids),
@@ -136,153 +128,95 @@ def scan_coingecko():
         "price_change_percentage": "24h,7d"
     }
 
-
     markets = _fetch(MARKETS_URL, params)
+
+    if not markets:
+        logger.warning("Market fetch failed — skipping scan")
+        return
 
     # -----------------------------
     # Reddit Sentiment
     # -----------------------------
-
     symbols = [c.get("symbol", "").upper() for c in markets]
 
-    sentiment_data = fetch_sentiment(symbols)
-
-
-    # -----------------------------
-    # News Impact
-    # -----------------------------
-
-    news_data = fetch_news_impact(symbols)
-
-
-
-
-    if not markets:
-
-        
-        if not markets:
-        print("⚠️ Skipping scan — API rate limited")
-        return
-
-
-        #logger.warning("No market data returned")
-        #return
-
+    sentiment_data = fetch_sentiment(symbols) or {}
+    news_data = fetch_news_impact(symbols) or {}
 
     # -----------------------------
     # Analysis Pipeline
     # -----------------------------
-
     ai_calls = 0
-
 
     for coin in markets:
 
         symbol = coin.get("symbol", "").upper()
 
         if _already_scanned(symbol, existing):
-            logger.info("Skipping cached %s", symbol)
             continue
 
-
         project = {
-
             "name": coin.get("name", "Unknown"),
             "symbol": symbol,
-
             "market_cap": safe_number(coin.get("market_cap")),
             "volume_24h": safe_number(coin.get("total_volume")),
-
             "price_change_24h": safe_number(
                 coin.get("price_change_percentage_24h")
             ),
-
             "price_change_7d": safe_number(
                 coin.get("price_change_percentage_7d_in_currency")
             ),
-
             "market_cap_rank": safe_number(
                 coin.get("market_cap_rank"), 500
             ),
         }
 
-
         # -----------------------------
         # AI (Limited)
         # -----------------------------
-
         if ai_calls < MAX_AI_CALLS:
-
             ai = analyze_project(project)
-
             project.update(ai)
-
             ai_calls += 1
-
         else:
-
-            logger.info("AI limit reached, fallback used")
-
             project["confidence"] = 0.4
-            project["verdict"] = "HOLD"
-            project["ai_analysis"] = "AI budget limit"
+            project["verdict"] = "Hold"
+            project["ai_analysis"] = "AI limit reached"
             project["strategy"] = "Wait"
 
-
         # -----------------------------
-        # Scoring
+        # Score
         # -----------------------------
-
         score_data = calculate_score(project)
-
         project.update(score_data)
-
 
         # -----------------------------
         # Confidence
         # -----------------------------
-
-        conf = calculate_confidence(project, score_data)
-
-        project["confidence"] = conf
-
+        project["confidence"] = calculate_confidence(project, score_data)
 
         # -----------------------------
         # Social Signals
         # -----------------------------
-
         sent = sentiment_data.get(symbol, {})
-
         project["sentiment_score"] = round(sent.get("score", 0), 3)
         project["social_volume"] = sent.get("mentions", 0)
-
 
         # -----------------------------
         # News Signals
         # -----------------------------
-
         news = news_data.get(symbol, {})
-
         project["trend_score"] = round(news.get("score", 0), 3)
         project["news_volume"] = news.get("mentions", 0)
 
-
-
-
-        # -----------------------------
-        # Save
-        # -----------------------------
-
-        import time    #Newly included
-        time.sleep(0.5)
-
-
-        logger.info("Saving %s | Score %.2f | Conf %.2f",
-                    project["name"],
-                    project["score"],
-                    project["confidence"])
+        logger.info(
+            "Saving %s | Score %.2f | Conf %.2f",
+            project["name"],
+            project.get("score", 0),
+            project["confidence"]
+        )
 
         save_project(project)
 
+        time.sleep(0.4)
 
-    logger.info("Scan completed")
+    logger.info("Scan completed successfully")
