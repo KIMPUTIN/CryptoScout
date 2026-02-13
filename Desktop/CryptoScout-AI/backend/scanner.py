@@ -76,7 +76,9 @@ def _fetch(url, params=None):
             time.sleep(2 ** i)
 
 
-    raise RuntimeError("Fetch failed")
+    print("⚠️ Fetch failed — keeping previous data")
+    return None
+
 
 
 def _already_scanned(symbol, db_cache):
@@ -157,8 +159,14 @@ def scan_coingecko():
 
     if not markets:
 
-        logger.warning("No market data returned")
+        
+        if not markets:
+        print("⚠️ Skipping scan — API rate limited")
         return
+
+
+        #logger.warning("No market data returned")
+        #return
 
 
     # -----------------------------
