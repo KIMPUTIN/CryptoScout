@@ -35,7 +35,13 @@ from scheduler import start_scheduler
 # ==========================================
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_key")
+if not GOOGLE_CLIENT_ID:
+    raise RuntimeError("GOOGLE_CLIENT_ID not set")
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET not set")
+
 
 # ==========================================
 # FASTAPI INIT
@@ -45,7 +51,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Later restrict to frontend domain
+    allow_origins=["https://cryptoscout-production-863c.up.railway.app"],  # restricted to frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -171,8 +177,21 @@ def get_current_user(authorization: str = Header(None)):
 
         return user
 
-    except Exception:
+
+    # -------
+    #except Exception:
+        #raise HTTPException(status_code=401, detail="Invalid token")
+    # --------
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    except Exception:
+        raise HTTPException(status_code=401, detail="Auth failed")
+
 
 
 # ==========================================
@@ -181,7 +200,8 @@ def get_current_user(authorization: str = Header(None)):
 
 @app.post("/watchlist/add/{symbol}")
 def add_watchlist(symbol: str, user=Depends(get_current_user)):
-    projects = get_all_projects()
+    projects = get_all_projects()  # Later get_project_by_symbol(symbol)
+
 
     project = next(
         (p for p in projects if p["symbol"] == symbol.upper()),

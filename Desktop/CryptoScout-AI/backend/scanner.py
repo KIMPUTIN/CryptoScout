@@ -26,6 +26,8 @@ MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 MAX_AI_CALLS = 5          # limit per scan
 REQUEST_TIMEOUT = 20
 RETRY_LIMIT = 3
+MAX_SCAN_TIME = 120  # seconds
+
 # -----------------------------
 # Circuit Breaker
 # -----------------------------
@@ -33,6 +35,7 @@ FAILURE_COUNT = 0
 MAX_FAILURES = 5
 COOLDOWN_SECONDS = 600  # 10 minutes
 LAST_FAILURE_TIME = 0
+
 
 
 # --------------------------------------------------
@@ -114,7 +117,7 @@ def _already_scanned(symbol, db_cache):
 def scan_coingecko():
 
     try:
-        start_time = time.time() # ----------------- inserted -----
+        start_time = time.time() # ----------------- inserted cct-----
 
         logger.info("Starting CoinGecko scan")
 
@@ -183,8 +186,21 @@ def scan_coingecko():
         # -----------------------------
         symbols = [c.get("symbol", "").upper() for c in markets]
 
-        sentiment_data = fetch_sentiment(symbols) or {}
-        news_data = fetch_news_impact(symbols) or {}
+        #sentiment_data = fetch_sentiment(symbols) or {}
+        #news_data = fetch_news_impact(symbols) or {}
+
+        try:
+            sentiment_data = fetch_sentiment(symbols) or {}
+        except Exception as e:
+            logger.warning("Sentiment fetch failed: %s", e)
+            sentiment_data = {}
+
+        try:
+            news_data = fetch_news_impact(symbols) or {}
+        except Exception as e:
+            logger.warning("News fetch failed: %s", e)
+            news_data = {}
+
 
         # -----------------------------
         # Analysis Pipeline
@@ -193,12 +209,17 @@ def scan_coingecko():
 
         for coin in markets:
 
+             # ⏱ GLOBAL SCAN TIMEOUT PROTECTION
+            if time.time() - start_time > MAX_SCAN_TIME:
+                logger.error("Scan timeout reached — aborting")
+                break
+
             try:
 
                 symbol = coin.get("symbol", "").upper()
 
                 if _already_scanned(symbol, existing):
-                    continue
+                    logger.info("Updating existing %s", symbol)
 
                 project = {
                     "name": coin.get("name", "Unknown"),
@@ -220,8 +241,14 @@ def scan_coingecko():
                 # AI (Limited)
                 # -----------------------------
                 if ai_calls < MAX_AI_CALLS:
-                    ai = analyze_project(project)
-                    project.update(ai)
+                    try:
+                        ai = analyze_project(project)
+                        project.update(ai)
+                    except Exception as e:
+                        logger.warning("AI failed for %s: %s", symbol, e)
+                        project["confidence"] = 0.3
+                        project["verdict"] = "Hold"
+
                     ai_calls += 1
                 else:
                     project["confidence"] = 0.4
@@ -273,9 +300,6 @@ def scan_coingecko():
 
         duration = round(time.time() - start_time, 2)
         logger.info("Scan completed successfully in %s seconds", duration)
-    
-
-        logger.info("Scan completed successfully")
         logger.info("SCAN STATUS: HEALTHY")
 
 
