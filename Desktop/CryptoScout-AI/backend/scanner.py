@@ -52,37 +52,38 @@ def safe_number(v, default=0):
         return default
 
 
-def _fetch(url, params=None):
-
+def _fetch(url, params=None):   # -----------Newly replaced line 55 - 85
     for i in range(RETRY_LIMIT):
-
         try:
-
             r = requests.get(
                 url,
                 params=params,
                 timeout=REQUEST_TIMEOUT
             )
 
-            r.raise_for_status()
+            # If rate limited
+            if r.status_code == 429:
+                logger.warning("Rate limited (429). Backing off...")
+                time.sleep(5 * (i + 1))
+                continue
 
+            r.raise_for_status()
             return r.json()
 
+        except requests.exceptions.Timeout:
+            logger.warning("Timeout fetching %s (attempt %s)", url, i + 1)
 
-        except requests.exceptions.HTTPError as e:
-            if r.status_code == 429:
-                logger.warning("Rate limited. Backing off...")
-                time.sleep(5 * (i + 1))
-            else:
-                logger.warning("HTTP error: %s", e)
-                time.sleep(2 ** i)
+        except requests.exceptions.RequestException as e:
+            logger.warning("Request error (%s): %s", url, e)
 
         except Exception as e:
-            logger.warning("Fetch retry %s: %s", i + 1, e)
-            time.sleep(2 ** i)
+            logger.error("Unexpected fetch error: %s", e)
 
-    logger.error("Fetch failed completely")
+        time.sleep(2 ** i)
+
+    logger.error("Market API down — using cached DB data")
     return None
+
 
 
 
@@ -97,154 +98,153 @@ def _already_scanned(symbol, db_cache):
 
 def scan_coingecko():
 
-    logger.info("Starting CoinGecko scan")
+    try:
+        logger.info("Starting CoinGecko scan")
 
-    existing = get_all_projects()
+        existing = get_all_projects()
 
-    # -----------------------------
-    # Trending
-    # -----------------------------
-    data = _fetch(TRENDING_URL)
+        # -----------------------------
+        # Trending
+        # -----------------------------
+        data = _fetch(TRENDING_URL)
 
-    if not data:
-        logger.warning("Trending fetch failed — skipping scan")
-        return
+        if not data:
+            logger.warning("Trending fetch failed — skipping scan")
+            return
 
-    coins = data.get("coins", [])
+        coins = data.get("coins", [])
 
-    if not coins:
-        logger.warning("No trending coins found")
-        return
+        if not coins:
+            logger.warning("No trending coins found")
+            return
 
-    ids = [c["item"]["id"] for c in coins]
+        ids = [c["item"]["id"] for c in coins]
 
-    logger.info("Found %s trending coins", len(ids))
+        logger.info("Found %s trending coins", len(ids))
 
-    # -----------------------------
-    # Market Data
-    # -----------------------------
-    params = {
-        "vs_currency": "usd",
-        "ids": ",".join(ids),
-        "order": "market_cap_desc",
-        "per_page": 20,
-        "page": 1,
-        "sparkline": False,
-        "price_change_percentage": "24h,7d"
-    }
-
-    markets = _fetch(MARKETS_URL, params)
-
-    # -----Outdated
-
-    #if not markets:
-    #    logger.warning("Skipping scan — CoinGecko rate limited")
-    #    return
-
-    # ----------
-
-
-    # ---New code instead
-    if not markets:
-        logger.warning("Using cached database data")
-        markets = [
-            {
-                "name": p["name"],
-                "symbol": p["symbol"],
-                "market_cap": p.get("market_cap"),
-                "total_volume": p.get("volume_24h"),
-                "price_change_percentage_24h": p.get("price_change_24h"),
-                "price_change_percentage_7d_in_currency": p.get("price_change_7d"),
-                "market_cap_rank": 500
-            }
-            for p in existing
-        ]
-    # --------------------
-
-
-    # -----------------------------
-    # Reddit Sentiment
-    # -----------------------------
-    symbols = [c.get("symbol", "").upper() for c in markets]
-
-    sentiment_data = fetch_sentiment(symbols) or {}
-    news_data = fetch_news_impact(symbols) or {}
-
-    # -----------------------------
-    # Analysis Pipeline
-    # -----------------------------
-    ai_calls = 0
-
-    for coin in markets:
-
-        symbol = coin.get("symbol", "").upper()
-
-        if _already_scanned(symbol, existing):
-            continue
-
-        project = {
-            "name": coin.get("name", "Unknown"),
-            "symbol": symbol,
-            "market_cap": safe_number(coin.get("market_cap")),
-            "volume_24h": safe_number(coin.get("total_volume")),
-            "price_change_24h": safe_number(
-                coin.get("price_change_percentage_24h")
-            ),
-            "price_change_7d": safe_number(
-                coin.get("price_change_percentage_7d_in_currency")
-            ),
-            "market_cap_rank": safe_number(
-                coin.get("market_cap_rank"), 500
-            ),
+        # -----------------------------
+        # Market Data
+        # -----------------------------
+        params = {
+            "vs_currency": "usd",
+            "ids": ",".join(ids),
+            "order": "market_cap_desc",
+            "per_page": 20,
+            "page": 1,
+            "sparkline": False,
+            "price_change_percentage": "24h,7d"
         }
 
-        # -----------------------------
-        # AI (Limited)
-        # -----------------------------
-        if ai_calls < MAX_AI_CALLS:
-            ai = analyze_project(project)
-            project.update(ai)
-            ai_calls += 1
-        else:
-            project["confidence"] = 0.4
-            project["verdict"] = "Hold"
-            project["ai_analysis"] = "AI limit reached"
-            project["strategy"] = "Wait"
+        markets = _fetch(MARKETS_URL, params)
+
+        # ---New code instead
+        if not markets:
+            logger.error("Market API down")
+            logger.warning("Using cached database data")
+            
+            markets = [
+                {
+                    "name": p["name"],
+                    "symbol": p["symbol"],
+                    "market_cap": p.get("market_cap"),
+                    "total_volume": p.get("volume_24h"),
+                    "price_change_percentage_24h": p.get("price_change_24h"),
+                    "price_change_percentage_7d_in_currency": p.get("price_change_7d"),
+                    "market_cap_rank": 500
+                }
+                for p in existing
+            ]
+        # --------------------
+
 
         # -----------------------------
-        # Score
+        # Reddit Sentiment
         # -----------------------------
-        score_data = calculate_score(project)
-        project.update(score_data)
+        symbols = [c.get("symbol", "").upper() for c in markets]
+
+        sentiment_data = fetch_sentiment(symbols) or {}
+        news_data = fetch_news_impact(symbols) or {}
 
         # -----------------------------
-        # Confidence
+        # Analysis Pipeline
         # -----------------------------
-        project["confidence"] = calculate_confidence(project, score_data)
+        ai_calls = 0
 
-        # -----------------------------
-        # Social Signals
-        # -----------------------------
-        sent = sentiment_data.get(symbol, {})
-        project["sentiment_score"] = round(sent.get("score", 0), 3)
-        project["social_volume"] = sent.get("mentions", 0)
+        for coin in markets:
 
-        # -----------------------------
-        # News Signals
-        # -----------------------------
-        news = news_data.get(symbol, {})
-        project["trend_score"] = round(news.get("score", 0), 3)
-        project["news_volume"] = news.get("mentions", 0)
+            symbol = coin.get("symbol", "").upper()
 
-        logger.info(
-            "Saving %s | Score %.2f | Conf %.2f",
-            project["name"],
-            project.get("score", 0),
-            project["confidence"]
-        )
+            if _already_scanned(symbol, existing):
+                continue
 
-        save_project(project)
+            project = {
+                "name": coin.get("name", "Unknown"),
+                "symbol": symbol,
+                "market_cap": safe_number(coin.get("market_cap")),
+                "volume_24h": safe_number(coin.get("total_volume")),
+                "price_change_24h": safe_number(
+                    coin.get("price_change_percentage_24h")
+                ),
+                "price_change_7d": safe_number(
+                    coin.get("price_change_percentage_7d_in_currency")
+                ),
+                "market_cap_rank": safe_number(
+                    coin.get("market_cap_rank"), 500
+                ),
+            }
 
-        time.sleep(0.4)
+            # -----------------------------
+            # AI (Limited)
+            # -----------------------------
+            if ai_calls < MAX_AI_CALLS:
+                ai = analyze_project(project)
+                project.update(ai)
+                ai_calls += 1
+            else:
+                project["confidence"] = 0.4
+                project["verdict"] = "Hold"
+                project["ai_analysis"] = "AI limit reached"
+                project["strategy"] = "Wait"
 
-    logger.info("Scan completed successfully")
+            # -----------------------------
+            # Score
+            # -----------------------------
+            score_data = calculate_score(project)
+            project.update(score_data)
+
+            # -----------------------------
+            # Confidence
+            # -----------------------------
+            project["confidence"] = calculate_confidence(project, score_data)
+
+            # -----------------------------
+            # Social Signals
+            # -----------------------------
+            sent = sentiment_data.get(symbol, {})
+            project["sentiment_score"] = round(sent.get("score", 0), 3)
+            project["social_volume"] = sent.get("mentions", 0)
+
+            # -----------------------------
+            # News Signals
+            # -----------------------------
+            news = news_data.get(symbol, {})
+            project["trend_score"] = round(news.get("score", 0), 3)
+            project["news_volume"] = news.get("mentions", 0)
+
+            logger.info(
+                "Saving %s | Score %.2f | Conf %.2f",
+                project["name"],
+                project.get("score", 0),
+                project["confidence"]
+            )
+
+            save_project(project)
+
+            time.sleep(0.4)
+
+        logger.info("Scan completed successfully")
+
+    except Exception as e:
+        logger.error("SCAN CRASHED: %s", e)
+        import traceback
+        traceback.print_exc()

@@ -11,7 +11,8 @@ def start_scheduler():
             scan_coingecko,
             "interval",
             minutes=30,   # TEMPORARY for testing
-            id="coingecko_scan"
+            id="coingecko_scan",
+            replace_existing=True
         )
 
         scheduler.start()
