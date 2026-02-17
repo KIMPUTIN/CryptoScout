@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchRanking } from "./api";
+import MonitoringDashboard from "./MonitoringDashboard";
 
 function App() {
     const [projects, setProjects] = useState([]);
@@ -10,7 +11,9 @@ function App() {
     const categories = ["short-term", "long-term", "low-risk", "high-growth"];
     const [category, setCategory] = useState("short-term");
 
-    // Load rankings
+    // =====================================
+    // LOAD RANKINGS
+    // =====================================
     useEffect(() => {
         async function load() {
             try {
@@ -20,6 +23,7 @@ function App() {
                 const data = await fetchRanking(category);
                 setProjects(data);
             } catch (err) {
+                console.error("Ranking error:", err);
                 setError("Failed loading rankings");
             } finally {
                 setLoading(false);
@@ -29,7 +33,9 @@ function App() {
         load();
     }, [category]);
 
-    // Google Sign-In setup
+    // =====================================
+    // GOOGLE AUTH SETUP
+    // =====================================
     useEffect(() => {
         if (!window.google) return;
 
@@ -66,11 +72,48 @@ function App() {
             } else {
                 alert("Login failed");
             }
-        } catch {
+        } catch (err) {
+            console.error("Auth error:", err);
             alert("Authentication error");
         }
     }
 
+    // =====================================
+    // ADD TO WATCHLIST
+    // =====================================
+    async function handleWatchlist(symbol) {
+        try {
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                alert("Please login first");
+                return;
+            }
+
+            const res = await fetch(
+                `${import.meta.env.VITE_API_URL}/watchlist/add/${symbol}`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error("Failed adding to watchlist");
+            }
+
+            alert("Added to watchlist");
+        } catch (err) {
+            console.error("Watchlist error:", err);
+            alert("Could not add to watchlist");
+        }
+    }
+
+    // =====================================
+    // UI
+    // =====================================
     return (
         <div style={{ padding: "20px", fontFamily: "Arial" }}>
             <h1>🚀 CryptoScout AI</h1>
@@ -78,9 +121,13 @@ function App() {
 
             <div id="googleSignInDiv" style={{ marginBottom: "20px" }} />
 
+            {/* ================= MONITOR DASHBOARD ================= */}
+            <MonitoringDashboard />
+
             {loading && <p>Loading projects...</p>}
             {error && <p style={{ color: "red" }}>{error}</p>}
 
+            {/* CATEGORY BUTTONS */}
             <div style={{ marginBottom: "20px" }}>
                 {categories.map((cat) => (
                     <button
@@ -101,13 +148,13 @@ function App() {
                 ))}
             </div>
 
+            {/* PROJECT CARDS */}
             <div
                 style={{
                     display: "grid",
                     gridTemplateColumns:
                         "repeat(auto-fill, minmax(250px, 1fr))",
                     gap: "20px",
-                    marginTop: "20px",
                 }}
             >
                 {projects.map((project) => (
@@ -128,28 +175,17 @@ function App() {
                         <p>
                             <strong>Score:</strong> {project.score}
                         </p>
+
                         <p>
                             <strong>Verdict:</strong> {project.verdict}
                         </p>
+
                         <p>{project.reasons}</p>
 
                         <button
-                            onClick={async () => {
-                                const token =
-                                    localStorage.getItem("token");
-
-                                await fetch(
-                                    `${import.meta.env.VITE_API_URL}/watchlist/add/${project.symbol}`,
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            Authorization: `Bearer ${token}`,
-                                        },
-                                    }
-                                );
-
-                                alert("Added to watchlist");
-                            }}
+                            onClick={() =>
+                                handleWatchlist(project.symbol)
+                            }
                         >
                             ⭐ Add to Watchlist
                         </button>

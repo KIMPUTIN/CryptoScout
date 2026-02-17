@@ -28,6 +28,8 @@ from ranking import (
 )
 
 from scheduler import start_scheduler
+from scanner import get_scan_status
+from ai_engine import ai_engine_health
 
 
 # ==========================================
@@ -35,23 +37,24 @@ from scheduler import start_scheduler
 # ==========================================
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+JWT_SECRET = os.getenv("JWT_SECRET")
+
 if not GOOGLE_CLIENT_ID:
     raise RuntimeError("GOOGLE_CLIENT_ID not set")
 
-JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET not set")
 
 
 # ==========================================
-# FASTAPI INIT
+# APP INIT
 # ==========================================
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cryptoscout-production-863c.up.railway.app"],  # restricted to frontend domain
+    allow_origins=["https://cryptoscout-production-863c.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,14 +67,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_event():
-    print("🚀 Starting CryptoScout Backend...")
     init_db()
     start_scheduler()
-    print("✅ Backend Ready")
 
 
 # ==========================================
-# HEALTH CHECK
+# HEALTH
 # ==========================================
 
 @app.get("/health")
@@ -80,13 +81,34 @@ def health():
 
 
 # ==========================================
-# RANKINGS
+# MONITOR
 # ==========================================
 
-@app.get("/projects")
-def projects():
-    return get_all_projects()
+@app.get("/monitor")
+def monitor():
 
+    scan_info = get_scan_status()
+
+    overall_status = "healthy"
+
+    if scan_info["scanner"]["last_result"] == "FAILED":
+        overall_status = "degraded"
+
+    if scan_info["scanner"]["failure_count"] > 3:
+        overall_status = "critical"
+
+    return {
+        "overall_status": overall_status,
+        "scanner": scan_info["scanner"],
+        "api_failures": scan_info["api_failures"],
+        "ai_engine": ai_engine_health(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+# ==========================================
+# RANKINGS
+# ==========================================
 
 @app.get("/rankings/short-term")
 def short_term():
@@ -114,28 +136,23 @@ def high_growth():
 
 @app.post("/auth/google")
 async def auth_google(payload: dict):
+
+    token = payload.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token missing")
+
     try:
-        token = payload.get("token")
-
-        if not token:
-            raise HTTPException(status_code=400, detail="Token missing")
-
         idinfo = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
             GOOGLE_CLIENT_ID
         )
 
-        google_id = idinfo["sub"]
-        email = idinfo.get("email")
-        name = idinfo.get("name")
-        picture = idinfo.get("picture")
-
         user = get_or_create_user(
-            google_id,
-            email,
-            name,
-            picture
+            idinfo["sub"],
+            idinfo.get("email"),
+            idinfo.get("name"),
+            idinfo.get("picture")
         )
 
         jwt_token = jwt.encode(
@@ -147,13 +164,9 @@ async def auth_google(payload: dict):
             algorithm="HS256"
         )
 
-        return {
-            "token": jwt_token,
-            "user": user
-        }
+        return {"token": jwt_token, "user": user}
 
-    except Exception as e:
-        print("❌ Google Auth Error:", e)
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid Google token")
 
 
@@ -162,36 +175,25 @@ async def auth_google(payload: dict):
 # ==========================================
 
 def get_current_user(authorization: str = Header(None)):
+
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing auth header")
 
     try:
         token = authorization.split(" ")[1]
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload.get("user_id")
-
-        user = get_user_by_id(user_id)
+        user = get_user_by_id(payload["user_id"])
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
         return user
 
-
-    # -------
-    #except Exception:
-        #raise HTTPException(status_code=401, detail="Invalid token")
-    # --------
-
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-    except Exception:
-        raise HTTPException(status_code=401, detail="Auth failed")
-
 
 
 # ==========================================
@@ -200,8 +202,8 @@ def get_current_user(authorization: str = Header(None)):
 
 @app.post("/watchlist/add/{symbol}")
 def add_watchlist(symbol: str, user=Depends(get_current_user)):
-    projects = get_all_projects()  # Later get_project_by_symbol(symbol)
 
+    projects = get_all_projects()
 
     project = next(
         (p for p in projects if p["symbol"] == symbol.upper()),
@@ -222,6 +224,6 @@ def fetch_watchlist(user=Depends(get_current_user)):
 
 
 @app.delete("/watchlist/remove/{symbol}")
-def delete_watchlist(symbol: str, user=Depends(get_current_user)):
+def remove_watchlist(symbol: str, user=Depends(get_current_user)):
     remove_from_watchlist(user["id"], symbol.upper())
     return {"status": "removed", "symbol": symbol.upper()}

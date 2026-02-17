@@ -7,45 +7,44 @@ import os
 import time
 import re
 import logging
+from typing import Dict, Any
 
 from openai import OpenAI
 
 
-# -------------------------------------------------
-# LOGGING CONFIG (Railway Friendly)
-# -------------------------------------------------
+# =====================================================
+# LOGGING
+# =====================================================
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [AI_ENGINE] %(levelname)s: %(message)s"
-)
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("AI_ENGINE")
 
 
-# -------------------------------------------------
-# OPENAI CONFIG
-# -------------------------------------------------
+# =====================================================
+# CONFIG
+# =====================================================
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    logger.warning("OPENAI_API_KEY not set! AI will fallback.")
+    logger.warning("OPENAI_API_KEY not set — AI will fallback.")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+MAX_RETRIES = 3
+AI_TIMEOUT = 30
 
 
-# -------------------------------------------------
-# FALLBACK SCORING ENGINE (UNCHANGED CORE LOGIC)
-# -------------------------------------------------
+# =====================================================
+# FALLBACK ENGINE
+# =====================================================
 
-def fallback_analysis(data: dict) -> dict:
+def fallback_analysis(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Rule-based scoring when AI is unavailable
+    Deterministic scoring fallback if AI fails.
+    Safe and guaranteed to return structured data.
     """
 
     try:
-
         market_cap = float(data.get("market_cap") or 0)
         volume = float(data.get("volume_24h") or 0)
         change = float(data.get("price_change_24h") or 0)
@@ -60,32 +59,30 @@ def fallback_analysis(data: dict) -> dict:
         score = round(score, 2)
 
         if score >= 75:
-            verdict = "STRONG BUY 🚀"
+            verdict = "STRONG BUY"
         elif score >= 60:
-            verdict = "BUY ✅"
+            verdict = "BUY"
         elif score >= 45:
-            verdict = "HOLD ⚠️"
+            verdict = "HOLD"
         else:
-            verdict = "AVOID ❌"
+            verdict = "AVOID"
 
         return {
             "score": score,
             "verdict": verdict,
             "confidence": round(score / 100, 2),
             "reasons": "Rule-based fallback analysis",
-            "ai_analysis": "Fallback system used due to AI unavailability",
+            "ai_analysis": "Fallback system used",
             "strategy": "Wait for stronger confirmation",
-            "risk_warning": "Limited data confidence"
+            "risk_warning": "Limited AI availability"
         }
 
     except Exception as e:
-
         logger.error("Fallback failed: %s", e)
 
-        # Absolute emergency return
         return {
             "score": 0,
-            "verdict": "HOLD ⚠️",
+            "verdict": "HOLD",
             "confidence": 0.1,
             "reasons": "System error",
             "ai_analysis": "Emergency fallback",
@@ -94,50 +91,41 @@ def fallback_analysis(data: dict) -> dict:
         }
 
 
-# -------------------------------------------------
-# JSON EXTRACTION UTILITY
-# -------------------------------------------------
+# =====================================================
+# JSON EXTRACTION
+# =====================================================
 
-def _extract_json(text: str) -> dict:
-    """
-    Safely extract JSON object from AI output
-    """
-
+def _extract_json(text: str) -> Dict[str, Any]:
     if not text:
         raise ValueError("Empty AI response")
 
-    # Find JSON block inside text
     match = re.search(r"\{.*\}", text, re.DOTALL)
 
     if not match:
         raise ValueError("No JSON object found")
 
-    json_text = match.group(0)
-
-    return json.loads(json_text)
+    return json.loads(match.group(0))
 
 
-# -------------------------------------------------
-# MAIN AI ENGINE
-# -------------------------------------------------
+# =====================================================
+# MAIN AI ANALYSIS
+# =====================================================
 
-def analyze_project(data: dict) -> dict:
+def analyze_project(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    AI-powered crypto analysis engine
-    Safe, retryable, scalable
+    Production-safe AI analysis.
+    Always returns valid structured data.
     """
 
-    MAX_RETRIES = 3
+    if not client:
+        return fallback_analysis(data)
 
     prompt = f"""
 You are a professional crypto investment analyst.
 
-You MUST return ONLY a valid JSON object.
+Return ONLY valid JSON.
 
-Do NOT add explanations.
-
-Use this exact format:
-
+FORMAT:
 {{
   "score": number (0-100),
   "verdict": "STRONG BUY" | "BUY" | "HOLD" | "AVOID",
@@ -158,50 +146,28 @@ Market Cap: {data.get("market_cap")}
 Rank: {data.get("market_cap_rank")}
 """
 
-    # If no key → skip AI
-    if not OPENAI_API_KEY:
-        logger.warning("Missing API key → fallback")
-        return fallback_analysis(data)
-
-
     for attempt in range(1, MAX_RETRIES + 1):
 
         try:
-
-            logger.info("AI analysis attempt %s", attempt)
+            logger.info("AI attempt %s", attempt)
 
             response = client.chat.completions.create(
-
                 model="gpt-4o-mini",
-
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a senior crypto analyst. Return ONLY JSON."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "system", "content": "Return ONLY JSON."},
+                    {"role": "user", "content": prompt}
                 ],
-
                 temperature=0.2,
-                max_tokens=600,
-                timeout=30
+                max_tokens=500,
+                timeout=AI_TIMEOUT
             )
 
             raw = response.choices[0].message.content.strip()
 
-            logger.debug("Raw AI output: %s", raw[:300])
-
             result = _extract_json(raw)
 
-
-            # -----------------------------------------
-            # Validate Output
-            # -----------------------------------------
-
-            required_fields = [
+            # Validation
+            required = [
                 "score",
                 "verdict",
                 "confidence",
@@ -211,57 +177,33 @@ Rank: {data.get("market_cap_rank")}
                 "risk_warning"
             ]
 
-            for field in required_fields:
+            for field in required:
                 if field not in result:
                     raise ValueError(f"Missing field: {field}")
 
+            # Normalize values
+            result["score"] = max(0, min(100, float(result["score"])))
+            result["confidence"] = max(0, min(1, float(result["confidence"])))
 
-            # Normalize Values
-            result["score"] = float(result["score"])
-            result["confidence"] = float(result["confidence"])
-
-
-            # Clamp ranges
-            result["score"] = max(0, min(100, result["score"]))
-            result["confidence"] = max(0, min(1, result["confidence"]))
-
-
-            logger.info("AI analysis successful")
+            logger.info("AI success")
 
             return result
 
-
         except Exception as e:
-
-            logger.warning(
-                "AI attempt %s failed: %s",
-                attempt,
-                str(e)
-            )
-
+            logger.warning("AI attempt %s failed: %s", attempt, e)
             time.sleep(1.5)
 
-
-    # -------------------------------------------------
-    # Total Failure → Fallback
-    # -------------------------------------------------
-
-    logger.error("AI failed after %s attempts → fallback", MAX_RETRIES)
-
+    logger.error("AI failed after retries — fallback engaged")
     return fallback_analysis(data)
 
 
-# -------------------------------------------------
-# OPTIONAL: Health Check (for Railway / Monitoring)
-# -------------------------------------------------
+# =====================================================
+# HEALTH CHECK
+# =====================================================
 
-def ai_engine_health() -> dict:
-    """
-    Health check endpoint helper
-    """
-
+def ai_engine_health() -> Dict[str, Any]:
     return {
         "status": "ok",
-        "openai_key": bool(OPENAI_API_KEY),
-        "engine": "CryptoScout AI v1.0"
+        "openai_key_loaded": bool(OPENAI_API_KEY),
+        "engine": "CryptoScout AI v2.0"
     }
