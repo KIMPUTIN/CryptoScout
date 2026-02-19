@@ -20,6 +20,7 @@ from api.routes_monitor import router as monitor_router
 from api.routes_backtest import router as backtest_router
 from api.routes_alerts import router as alerts_router
 from api.routes_ws import router as ws_router
+from fastapi import Response
 
 
 # =====================================================
@@ -34,6 +35,13 @@ setup_logging()
 # =====================================================
 
 app = FastAPI(title=APP_NAME)
+
+
+@app.middleware("http")
+async def coop_fix(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    return response
 
 
 # =====================================================

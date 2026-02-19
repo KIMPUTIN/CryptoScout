@@ -208,8 +208,10 @@ def serialize_project_summary(project: Dict) -> Dict:
         "symbol": project["symbol"],
         "name": project["name"],
         "current_price": project.get("current_price"),
-        "combined_score": project["combined_score"],
-        "volatility_heat": project["volatility_heat"],
-        "trend_momentum": project["trend_momentum"],
-        "ai_score": project.get("ai_score")
+        "combined_score": project.get("combined_score"),
+        "volatility_heat": project.get("volatility_heat"),
+        "trend_momentum": project.get("trend_momentum"),
+        "ai_score": project.get("ai_score"),
+        "ai_verdict": project.get("ai_verdict")
     }
+
