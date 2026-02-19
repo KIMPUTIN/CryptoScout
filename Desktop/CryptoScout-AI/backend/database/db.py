@@ -12,15 +12,17 @@ def get_connection():
 
 
 def init_db():
+
+    # ==========================
+    # Start the connection
+    # ==========================
+    
     conn = get_connection()
     cursor = conn.cursor()
 
-    CREATE INDEX IF NOT EXISTS idx_symbol_time
-    ON project_history(symbol, snapshot_time);
-
-
-
+    # =============================
     # Users
+    # =============================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +33,9 @@ def init_db():
     )
     """)
 
+    # =============================
     # Projects
+    # =============================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +54,9 @@ def init_db():
     )
     """)
 
+    # =============================
     # Watchlist
+    # =============================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS watchlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,10 +66,9 @@ def init_db():
     )
     """)
 
-    conn.commit()
-    conn.close()
-
+    # =============================
     # Historical Snapshots
+    # =============================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS project_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,26 +85,9 @@ def init_db():
     )
     """)
 
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS project_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        symbol TEXT,
-        current_price REAL,
-        market_cap REAL,
-        volume_24h REAL,
-        price_change_24h REAL,
-        price_change_7d REAL,
-        ai_score REAL,
-        sentiment_score REAL,
-        combined_score REAL,
-        snapshot_time TEXT
-    )
-    """)
-
-
-
+    # =============================
     # Alerts
+    # =============================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,13 +99,22 @@ def init_db():
     )
     """)
 
+    # =============================
+    # Refresh Tokens
+    # =============================
     cursor.execute("""
-    CREATE INDEX IF NOT EXISTS idx_alert_symbol_time
-    ON alerts(symbol, created_at)
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        token TEXT,
+        expires_at TEXT
+    )
     """)
 
+    # =============================
+    # INDEXES (AFTER TABLES EXIST)
+    # =============================
 
-    # Projects indexes
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_projects_symbol
     ON projects(symbol)
@@ -133,20 +130,18 @@ def init_db():
     ON projects(market_cap)
     """)
 
-    # History indexes
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_history_symbol_time
     ON project_history(symbol, snapshot_time)
     """)
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS refresh_tokens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        token TEXT,
-        expires_at TEXT
-)
-""")
+    CREATE INDEX IF NOT EXISTS idx_alert_symbol_time
+    ON alerts(symbol, created_at)
+    """)
 
-
-
+    # =================================
+    # FINALIZE (Closing the connection)
+    # =================================
+    conn.commit()
+    conn.close()

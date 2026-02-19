@@ -12,4 +12,6 @@ textblob
 google-auth
 python-jose
 PyJWT
+redis
+sentry-sdk
 
