@@ -1,69 +1,56 @@
 
 # backend/main.py
 
-import os
-import jwt
-from datetime import datetime, timedelta
-
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
-from database import (
-    init_db,
-    get_all_projects,
-    get_or_create_user,
-    get_user_by_id,
-    add_to_watchlist,
-    get_watchlist,
-    remove_from_watchlist
-)
-
-from ranking import (
-    get_short_term,
-    get_long_term,
-    get_low_risk,
-    get_high_growth
-)
-
+from core.config import APP_NAME, ALLOWED_ORIGINS
+from core.logging_config import setup_logging
+from database.db import init_db
 from scheduler import start_scheduler
-from scanner import get_scan_status
-from ai_engine import ai_engine_health
+
+from api.routes_auth import router as auth_router
+from api.routes_rankings import router as rankings_router
+from api.routes_watchlist import router as watchlist_router
+from api.routes_monitor import router as monitor_router
+from api.routes_backtest import router as backtest_router
+from api.routes_alerts import router as alerts_router
+
+import sentry_sdk
+import os
+from fastapi.middleware.gzip import GZipMiddleware
+from api.routes_ws import router as ws_router
+
+app.include_router(alerts_router)
+
+app.include_router(backtest_router)
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+app.include_router(ws_router)
 
 
-# ==========================================
-# CONFIG
-# ==========================================
+SENTRY_DSN = os.getenv("SENTRY_DSN")
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-JWT_SECRET = os.getenv("JWT_SECRET")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=1.0
+    )
 
-if not GOOGLE_CLIENT_ID:
-    raise RuntimeError("GOOGLE_CLIENT_ID not set")
+    
+setup_logging()
 
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET not set")
-
-
-# ==========================================
-# APP INIT
-# ==========================================
-
-app = FastAPI()
+app = FastAPI(title=APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cryptoscout-production-863c.up.railway.app"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ==========================================
-# STARTUP
-# ==========================================
 
 @app.on_event("startup")
 def startup_event():
@@ -71,159 +58,8 @@ def startup_event():
     start_scheduler()
 
 
-# ==========================================
-# HEALTH
-# ==========================================
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-# ==========================================
-# MONITOR
-# ==========================================
-
-@app.get("/monitor")
-def monitor():
-
-    scan_info = get_scan_status()
-
-    overall_status = "healthy"
-
-    if scan_info["scanner"]["last_result"] == "FAILED":
-        overall_status = "degraded"
-
-    if scan_info["scanner"]["failure_count"] > 3:
-        overall_status = "critical"
-
-    return {
-        "overall_status": overall_status,
-        "scanner": scan_info["scanner"],
-        "api_failures": scan_info["api_failures"],
-        "ai_engine": ai_engine_health(),
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-
-# ==========================================
-# RANKINGS
-# ==========================================
-
-@app.get("/rankings/short-term")
-def short_term():
-    return get_short_term()
-
-
-@app.get("/rankings/long-term")
-def long_term():
-    return get_long_term()
-
-
-@app.get("/rankings/low-risk")
-def low_risk():
-    return get_low_risk()
-
-
-@app.get("/rankings/high-growth")
-def high_growth():
-    return get_high_growth()
-
-
-# ==========================================
-# GOOGLE AUTH
-# ==========================================
-
-@app.post("/auth/google")
-async def auth_google(payload: dict):
-
-    token = payload.get("token")
-    if not token:
-        raise HTTPException(status_code=400, detail="Token missing")
-
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
-
-        user = get_or_create_user(
-            idinfo["sub"],
-            idinfo.get("email"),
-            idinfo.get("name"),
-            idinfo.get("picture")
-        )
-
-        jwt_token = jwt.encode(
-            {
-                "user_id": user["id"],
-                "exp": datetime.utcnow() + timedelta(days=7)
-            },
-            JWT_SECRET,
-            algorithm="HS256"
-        )
-
-        return {"token": jwt_token, "user": user}
-
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
-
-
-# ==========================================
-# AUTH DEPENDENCY
-# ==========================================
-
-def get_current_user(authorization: str = Header(None)):
-
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing auth header")
-
-    try:
-        token = authorization.split(" ")[1]
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user = get_user_by_id(payload["user_id"])
-
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        return user
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-# ==========================================
-# WATCHLIST
-# ==========================================
-
-@app.post("/watchlist/add/{symbol}")
-def add_watchlist(symbol: str, user=Depends(get_current_user)):
-
-    projects = get_all_projects()
-
-    project = next(
-        (p for p in projects if p["symbol"] == symbol.upper()),
-        None
-    )
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    add_to_watchlist(user["id"], project)
-
-    return {"status": "added", "symbol": symbol.upper()}
-
-
-@app.get("/watchlist")
-def fetch_watchlist(user=Depends(get_current_user)):
-    return get_watchlist(user["id"])
-
-
-@app.delete("/watchlist/remove/{symbol}")
-def remove_watchlist(symbol: str, user=Depends(get_current_user)):
-    remove_from_watchlist(user["id"], symbol.upper())
-    return {"status": "removed", "symbol": symbol.upper()}
+# Register routers
+app.include_router(auth_router)
+app.include_router(rankings_router)
+app.include_router(watchlist_router)
+app.include_router(monitor_router)
