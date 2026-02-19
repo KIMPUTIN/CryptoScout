@@ -100,7 +100,8 @@ def run_scan(limit: int = 50):
             previous_score = 0
 
             if existing:
-                previous_score = compute_combined_score(existing)
+                previous_score = compute_combined_score(existing) if existing else 0
+
 
             # ==========================
             # COMPUTE NEW SCORE

@@ -205,3 +205,75 @@ def get_all_alerts(limit: int = 50):
     conn.close()
 
     return [dict(r) for r in rows]
+
+
+# =====================================================
+# REFRESH TOKENS
+# =====================================================
+
+def store_refresh_token(user_id: int, token: str):
+    """
+    Store refresh token in DB.
+    Allows revocation and multi-session tracking.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO refresh_tokens (user_id, token, expires_at)
+        VALUES (?, ?, ?)
+        """,
+        (
+            user_id,
+            token,
+            datetime.utcnow().isoformat()
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def is_refresh_token_valid(token: str) -> bool:
+    """
+    Check whether refresh token exists and is valid.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT id FROM refresh_tokens
+        WHERE token = ?
+        """,
+        (token,)
+    )
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return row is not None
+
+
+def revoke_refresh_token(token: str):
+    """
+    Delete a refresh token (logout support).
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM refresh_tokens
+        WHERE token = ?
+        """,
+        (token,)
+    )
+
+    conn.commit()
+    conn.close()
+
