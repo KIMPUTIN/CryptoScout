@@ -52,52 +52,52 @@ def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
 
     # for attempt in range(1, MAX_RETRIES + 1): -----remove ------
 
-        try:
-            response = requests.get(
-                COINGECKO_URL,
-                params=params,
-                timeout=REQUEST_TIMEOUT
-            )
+    try:
+        response = requests.get(
+            COINGECKO_URL,
+            params=params,
+            timeout=REQUEST_TIMEOUT
+        )
 
-            if response.status_code == 429:
-                api_tracker.record_rate_limit()
-                breaker.record_failure()
-                logger.warning("Rate limited by CoinGecko (429)")
-                return []
-
-            response.raise_for_status()
-
-            data = response.json()
-
-            if not isinstance(data, list):
-                breaker.record_failure()
-                return []
-
-            projects = []
-
-            for coin in data:
-
-                # Basic data validation
-                if not coin.get("symbol") or not coin.get("current_price"):
-                    continue
-
-                projects.append({
-                    "name": coin.get("name"),
-                    "symbol": coin.get("symbol", "").upper(),
-                    "current_price": coin.get("current_price") or 0,
-                    "market_cap": coin.get("market_cap") or 0,
-                    "volume_24h": coin.get("total_volume") or 0,
-                    "price_change_24h": coin.get("price_change_percentage_24h") or 0,
-                    "price_change_7d": coin.get("price_change_percentage_7d_in_currency") or 0,
-                    "market_cap_rank": coin.get("market_cap_rank") or 0
-                })
-
-
-            breaker.record_success()
-            return projects
-
-        except Exception as e:
-            api_tracker.record_failure()
+        if response.status_code == 429:
+            api_tracker.record_rate_limit()
             breaker.record_failure()
-            logger.error("Market request failed: %s", e)
+            logger.warning("Rate limited by CoinGecko (429)")
             return []
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        if not isinstance(data, list):
+            breaker.record_failure()
+            return []
+
+        projects = []
+
+        for coin in data:
+
+            # Basic data validation
+            if not coin.get("symbol") or not coin.get("current_price"):
+                continue
+
+            projects.append({
+                "name": coin.get("name"),
+                "symbol": coin.get("symbol", "").upper(),
+                "current_price": coin.get("current_price") or 0,
+                "market_cap": coin.get("market_cap") or 0,
+                "volume_24h": coin.get("total_volume") or 0,
+                "price_change_24h": coin.get("price_change_percentage_24h") or 0,
+                "price_change_7d": coin.get("price_change_percentage_7d_in_currency") or 0,
+                "market_cap_rank": coin.get("market_cap_rank") or 0
+            })
+
+
+        breaker.record_success()
+        return projects
+
+    except Exception as e:
+        api_tracker.record_failure()
+        breaker.record_failure()
+        logger.error("Market request failed: %s", e)
+        return []
