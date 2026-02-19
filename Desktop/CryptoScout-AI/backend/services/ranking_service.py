@@ -118,10 +118,10 @@ def get_rankings(
     offset: int = 0
 ) -> List[Dict]:
 
-    cached = cache_get(f"rankings:{profile}")
+    cached = cache_get(f"rankings:v2:{profile}")    #----------v2
     if not cached:
         data = _build_rankings(profile)
-        cache_set(f"rankings:{profile}", data, 300)
+        cache_set(f"rankings:v2:{profile}", data, 30) #---------v2 n 300 to 30
     else:
         data = cached
 
@@ -205,13 +205,17 @@ def get_high_growth(
 
 def serialize_project_summary(project: Dict) -> Dict:
     return {
-        "symbol": project["symbol"],
-        "name": project["name"],
-        "current_price": project.get("current_price"),
-        "combined_score": project.get("combined_score"),
-        "volatility_heat": project.get("volatility_heat"),
-        "trend_momentum": project.get("trend_momentum"),
-        "ai_score": project.get("ai_score"),
-        "ai_verdict": project.get("ai_verdict")
+        "symbol": project.get("symbol"),
+        "name": project.get("name"),
+        "current_price": project.get("current_price", 0),
+
+        # ⭐ NEVER allow None
+        "combined_score": float(project.get("combined_score") or 0),
+        "volatility_heat": project.get("volatility_heat", "LOW"),
+        "trend_momentum": float(project.get("trend_momentum") or 0),
+
+        "ai_score": float(project.get("ai_score") or 0),
+        "ai_verdict": project.get("ai_verdict") or "UNKNOWN"
     }
+
 
