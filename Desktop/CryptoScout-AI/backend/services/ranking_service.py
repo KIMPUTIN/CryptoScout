@@ -159,31 +159,53 @@ def personalize_rankings(
 # FILTERED VIEWS
 # =====================================================
 
-def get_short_term(profile: str = "balanced"):
-    return get_rankings(profile)[:10]
+def get_short_term(
+    profile: str = "balanced",
+    limit: int = 20,
+    offset: int = 0
+):
+    return get_rankings(profile, limit, offset)
 
 
-def get_long_term(profile: str = "balanced"):
-    return sorted(
-        get_rankings(profile),
+def get_long_term(
+    profile: str = "balanced",
+    limit: int = 20,
+    offset: int = 0
+):
+    data = get_rankings(profile)
+    data = sorted(
+        data,
         key=lambda x: x.get("market_cap", 0),
         reverse=True
-    )[:10]
+    )
+    return data[offset:offset + limit]
 
 
-def get_low_risk(profile: str = "balanced"):
-    return sorted(
-        get_rankings(profile),
+def get_low_risk(
+    profile: str = "balanced",
+    limit: int = 20,
+    offset: int = 0
+):
+    data = get_rankings(profile)
+    data = sorted(
+        data,
         key=lambda x: abs(x.get("price_change_24h", 0))
-    )[:10]
+    )
+    return data[offset:offset + limit]
 
 
-def get_high_growth(profile: str = "balanced"):
-    return sorted(
-        get_rankings(profile),
+def get_high_growth(
+    profile: str = "balanced",
+    limit: int = 20,
+    offset: int = 0
+):
+    data = get_rankings(profile)
+    data = sorted(
+        data,
         key=lambda x: x.get("price_change_7d", 0),
         reverse=True
-    )[:10]
+    )
+    return data[offset:offset + limit]
 
 
 def serialize_project_summary(project: Dict) -> Dict:
