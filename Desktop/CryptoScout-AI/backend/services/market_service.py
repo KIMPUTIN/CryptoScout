@@ -28,18 +28,16 @@ api_tracker = APIUsageTracker(window_seconds=3600)
 
 
 def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
-
-    api_tracker.record_call()
-
-    if not breaker.can_execute():
-        api_tracker.record_call()
-        logger.warning("Circuit breaker OPEN — skipping market request")
-        return []
-
     """
     Fetch top crypto projects from CoinGecko.
     Production-safe with retry + validation.
     """
+
+    api_tracker.record_call()
+
+    if not breaker.can_execute():
+        logger.warning("Circuit breaker OPEN — skipping market request")
+        return []
 
     params = {
         "vs_currency": "usd",
@@ -49,8 +47,6 @@ def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
         "sparkline": False,
         "price_change_percentage": "7d"
     }
-
-    # for attempt in range(1, MAX_RETRIES + 1): -----remove ------
 
     try:
         response = requests.get(
@@ -66,7 +62,6 @@ def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
             return []
 
         response.raise_for_status()
-
         data = response.json()
 
         if not isinstance(data, list):
@@ -76,7 +71,6 @@ def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
         projects = []
 
         for coin in data:
-
             # Basic data validation
             if not coin.get("symbol") or not coin.get("current_price"):
                 continue
@@ -91,7 +85,6 @@ def fetch_top_projects(limit: int = 50) -> List[Dict[str, Any]]:
                 "price_change_7d": coin.get("price_change_percentage_7d_in_currency") or 0,
                 "market_cap_rank": coin.get("market_cap_rank") or 0
             })
-
 
         breaker.record_success()
         return projects
