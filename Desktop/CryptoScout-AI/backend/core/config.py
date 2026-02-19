@@ -50,5 +50,5 @@ RANKING_CACHE_DURATION = timedelta(minutes=5)
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000"
+     "https://cryptoscout-production-863c.up.railway.app"
 ).split(",")

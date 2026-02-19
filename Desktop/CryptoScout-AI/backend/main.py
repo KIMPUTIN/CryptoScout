@@ -37,6 +37,23 @@ app = FastAPI(title=APP_NAME)
 
 
 # =====================================================
+# MIDDLEWARE - CORS immediately after app creation
+# =====================================================
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# optional gzip
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+# =====================================================
 # SENTRY
 # =====================================================
 
@@ -50,18 +67,14 @@ if SENTRY_DSN:
 
 
 # =====================================================
-# MIDDLEWARE
+# STARTUP
 # =====================================================
 
-app.add_middleware(GZipMiddleware, minimum_size=500)
+@app.on_event("startup")
+def startup_event():
+    init_db()
+    start_scheduler()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # =====================================================
@@ -77,11 +90,4 @@ app.include_router(alerts_router)
 app.include_router(ws_router)
 
 
-# =====================================================
-# STARTUP
-# =====================================================
 
-@app.on_event("startup")
-def startup_event():
-    init_db()
-    start_scheduler()
