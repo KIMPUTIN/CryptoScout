@@ -203,6 +203,3 @@ def run_scan(limit: int = 50):
 
 
 
-get_rankings("balanced")
-get_rankings("aggressive")
-get_rankings("conservative")
