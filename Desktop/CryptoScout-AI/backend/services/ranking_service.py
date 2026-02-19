@@ -12,11 +12,11 @@ from core.redis_client import cache_get, cache_set
 
 logger = logging.getLogger(__name__)
 
-_cache = {
+"""_cache = {
     "data": None,
     "timestamp": None
 }
-
+"""
 
 # =====================================================
 # CORE METRICS
@@ -86,26 +86,31 @@ def compute_combined_score(project: Dict, profile: str = "balanced") -> float:
 # =====================================================
 
 def _build_rankings(profile: str = "balanced") -> List[Dict]:
+    try:
+        projects = get_all_projects()
+    except Exception as e:
+        logger.warning("Rankings build skipped — DB not ready: %s", e)
+        return []
 
-    projects = get_all_projects()
     ranked = []
 
     for project in projects:
-        score = compute_combined_score(project, profile)
+        # work on a copy to avoid cache mutation bugs
+        p = dict(project)
 
-        project["combined_score"] = score
-        project["volatility_heat"] = compute_volatility_heat(project)
-        project["trend_momentum"] = compute_trend_momentum(project)
+        score = compute_combined_score(p, profile)
 
-        ranked.append(project)
+        p["combined_score"] = score
+        p["volatility_heat"] = compute_volatility_heat(p)
+        p["trend_momentum"] = compute_trend_momentum(p)
+
+        ranked.append(serialize_project_summary(p))
 
     ranked.sort(key=lambda x: x["combined_score"], reverse=True)
 
-    ranked.append(serialize_project_summary(project))
-
     logger.info("Rankings rebuilt (%s projects)", len(ranked))
-
     return ranked
+
 
 
 # =====================================================
