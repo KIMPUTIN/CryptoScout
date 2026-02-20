@@ -41,41 +41,84 @@ def compute_volatility_heat(project: Dict) -> str:
         return "LOW"
 
 
+
+# =====================================================
+# ADVANCED METRICS (PRO LEVEL)
+# =====================================================
+
+def compute_market_cap_score(project: Dict) -> float:
+    mc = float(project.get("market_cap") or 0)
+
+    if mc <= 0:
+        return 0
+
+    # log scale normalization
+    import math
+    score = min(math.log10(mc) / 12, 1)
+    return round(score, 4)
+
+
+def compute_volume_pressure(project: Dict) -> float:
+    volume = float(project.get("volume_24h") or 0)
+    market_cap = float(project.get("market_cap") or 1)
+
+    ratio = volume / market_cap
+    return round(min(ratio * 5, 1), 4)
+
+
+def compute_trend_acceleration(project: Dict) -> float:
+    change_24h = float(project.get("price_change_24h") or 0)
+    change_7d = float(project.get("price_change_7d") or 0)
+
+    accel = change_24h - (change_7d / 7)
+    return round(accel / 100, 4)
+
+
+
 # =====================================================
 # RISK PROFILE SCORING
 # =====================================================
 
 def compute_combined_score(project: Dict, profile: str = "balanced") -> float:
 
-    market_cap = float(project.get("market_cap") or 0)
     ai_score = float(project.get("ai_score") or 0) / 100
     sentiment = float(project.get("sentiment_score") or 0)
-    volatility = abs(float(project.get("price_change_24h") or 0)) / 100
+
     momentum = compute_trend_momentum(project)
+    volatility = abs(float(project.get("price_change_24h") or 0)) / 100
+    market_cap_score = compute_market_cap_score(project)
+    volume_pressure = compute_volume_pressure(project)
+    acceleration = compute_trend_acceleration(project)
+
+    # ---------------- PRO WEIGHTING ----------------
 
     if profile == "aggressive":
         score = (
-            0.35 * momentum +
-            0.25 * ai_score +
-            0.20 * sentiment +
-            0.20 * volatility
+            0.25 * momentum +
+            0.20 * acceleration +
+            0.20 * ai_score +
+            0.15 * sentiment +
+            0.10 * volume_pressure +
+            0.10 * volatility
         )
 
     elif profile == "conservative":
-        stability_bonus = min(market_cap / 1_000_000_000, 1)
         score = (
-            0.40 * stability_bonus +
-            0.25 * sentiment +
-            0.20 * ai_score -
-            0.25 * volatility
+            0.35 * market_cap_score +
+            0.20 * sentiment +
+            0.20 * ai_score +
+            0.15 * volume_pressure -
+            0.20 * volatility
         )
 
     else:  # balanced
         score = (
-            0.30 * momentum +
+            0.25 * momentum +
             0.20 * ai_score +
-            0.20 * sentiment -
-            0.15 * volatility
+            0.15 * sentiment +
+            0.15 * market_cap_score +
+            0.15 * volume_pressure -
+            0.10 * volatility
         )
 
     return round(score, 4)
@@ -203,6 +246,23 @@ def get_high_growth(
     return data[offset:offset + limit]
 
 
+
+def serialize_project_summary(project: Dict) -> Dict:
+    return {
+        "symbol": project.get("symbol"),
+        "name": project.get("name"),
+        "current_price": project.get("current_price"),
+        "combined_score": project.get("combined_score", 0),
+        "volatility_heat": project.get("volatility_heat"),
+        "trend_momentum": project.get("trend_momentum"),
+        "ai_score": project.get("ai_score", 0),
+        "ai_verdict": project.get("ai_verdict", "UNKNOWN")
+    }
+
+
+
+
+""" Earlier serializer--------------------
 def serialize_project_summary(project: Dict) -> Dict:
     return {
         "symbol": project.get("symbol"),
@@ -217,5 +277,6 @@ def serialize_project_summary(project: Dict) -> Dict:
         "ai_score": float(project.get("ai_score") or 0),
         "ai_verdict": project.get("ai_verdict") or "UNKNOWN"
     }
+"""
 
 
