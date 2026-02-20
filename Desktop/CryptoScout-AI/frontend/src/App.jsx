@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchRanking } from "./api";
-import MonitoringDashboard from "./MonitoringDashboard";
+import MonitoringDashboard from "./components/MonitoringDashboard";
 
 function App() {
     const [projects, setProjects] = useState([]);
