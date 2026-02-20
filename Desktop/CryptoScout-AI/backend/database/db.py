@@ -85,6 +85,16 @@ def init_db():
     )
     """)
 
+# ---------------------------------------
+    cursor.execute("""
+    PRAGMA table_info(project_history)
+    """)
+    columns = [row[1] for row in cursor.fetchall()]
+
+    if "ai_verdict" not in columns:
+        cursor.execute("ALTER TABLE project_history ADD COLUMN ai_verdict TEXT")
+
+# --------------------------------------------
     # =============================
     # Alerts
     # =============================
