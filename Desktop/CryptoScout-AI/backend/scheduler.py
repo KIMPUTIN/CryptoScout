@@ -5,7 +5,8 @@ import threading
 import time
 import logging
 
-from services.scanner_service import run_scan
+from services.scanner_service import run_scan_sync
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def _safe_scan():
         return
 
     try:
-        run_scan()
+        run_scan_sync()
     finally:
         _lock.release()
 
