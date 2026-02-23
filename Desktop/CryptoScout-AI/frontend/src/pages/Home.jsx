@@ -9,6 +9,8 @@ function Home() {
     const [error, setError] = useState(null);
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [activeView, setActiveView] = useState("discover"); // discover, watchlist, portfolio, analytics
 
     const categories = ["short-term", "long-term", "low-risk", "high-growth"];
     const [category, setCategory] = useState("short-term");
@@ -17,6 +19,7 @@ function Home() {
 
     const [expandedSymbol, setExpandedSymbol] = useState(null);
     const [explanations, setExplanations] = useState({});
+    const [watchlist, setWatchlist] = useState([]);
 
     // =====================================
     // CHECK EXISTING SESSION
@@ -29,12 +32,34 @@ function Home() {
             try {
                 setUser(JSON.parse(savedUser));
                 setIsAuthenticated(true);
+                fetchWatchlist();
             } catch {
                 localStorage.removeItem("token");
                 localStorage.removeItem("user");
             }
         }
     }, []);
+
+    // =====================================
+    // FETCH WATCHLIST
+    // =====================================
+    const fetchWatchlist = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/watchlist`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setWatchlist(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch watchlist");
+        }
+    };
 
     // =====================================
     // GOOGLE LOGIN
@@ -60,6 +85,7 @@ function Home() {
             localStorage.setItem("user", JSON.stringify(data.user));
             setUser(data.user);
             setIsAuthenticated(true);
+            fetchWatchlist();
 
         } catch (err) {
             alert("Login failed");
@@ -125,6 +151,7 @@ function Home() {
         localStorage.removeItem("user");
         setUser(null);
         setIsAuthenticated(false);
+        setWatchlist([]);
     };
 
     // =====================================
@@ -135,8 +162,11 @@ function Home() {
             const token = localStorage.getItem("token");
             if (!token) return alert("Please login first");
 
+            const isInWatchlist = watchlist.some(item => item.symbol === symbol);
+            const endpoint = isInWatchlist ? 'remove' : 'add';
+
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/watchlist/add/${symbol}`,
+                `${import.meta.env.VITE_API_URL}/watchlist/${endpoint}/${symbol}`,
                 {
                     method: "POST",
                     headers: {
@@ -147,10 +177,11 @@ function Home() {
 
             if (!res.ok) throw new Error();
 
-            alert("Added to watchlist");
+            alert(isInWatchlist ? "Removed from watchlist" : "Added to watchlist");
+            fetchWatchlist();
 
         } catch {
-            alert("Could not add to watchlist");
+            alert("Could not update watchlist");
         }
     };
 
@@ -177,351 +208,651 @@ function Home() {
     }, []);
 
     // =====================================
+    // DASHBOARD STATS
+    // =====================================
+    const getDashboardStats = () => {
+        const totalProjects = projects.length;
+        const avgScore = projects.reduce((acc, p) => acc + (p.ai_score || 0), 0) / totalProjects || 0;
+        const buySignals = projects.filter(p => p.ai_verdict === "BUY").length;
+        const highVolatility = projects.filter(p => p.volatility_heat === "EXTREME" || p.volatility_heat === "HIGH").length;
+        
+        return { totalProjects, avgScore, buySignals, highVolatility };
+    };
+
+    const stats = getDashboardStats();
+
+    // =====================================
     // UI
     // =====================================
     return (
-        <div
-            style={{
-                minHeight: "100vh",
-                background: "radial-gradient(circle at 20% 20%, #1e293b, #0f172a)",
-                padding: "40px 24px",
-                fontFamily: "'Inter', sans-serif",
-                color: "#f8fafc"
-            }}
-        >
+        <div style={{
+            display: "flex",
+            minHeight: "100vh",
+            background: "#0f172a",
+            fontFamily: "'Inter', sans-serif",
+            color: "#f8fafc"
+        }}>
             <style>{`
-                .text-secondary {
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                .sidebar {
+                    background: rgba(15, 23, 42, 0.95);
+                    backdrop-filter: blur(10px);
+                    border-right: 1px solid rgba(255,255,255,0.08);
+                    transition: width 0.3s ease;
+                    height: 100vh;
+                    position: sticky;
+                    top: 0;
+                    overflow-y: auto;
+                }
+
+                .sidebar::-webkit-scrollbar {
+                    width: 4px;
+                }
+
+                .sidebar::-webkit-scrollbar-track {
+                    background: rgba(255,255,255,0.02);
+                }
+
+                .sidebar::-webkit-scrollbar-thumb {
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 4px;
+                }
+
+                .sidebar.collapsed {
+                    width: 80px;
+                }
+
+                .sidebar.expanded {
+                    width: 280px;
+                }
+
+                .nav-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 12px 20px;
+                    margin: 4px 12px;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
                     color: #94a3b8;
                 }
-                .accent-red {
-                    color: #ef4444;
+
+                .nav-item:hover {
+                    background: rgba(255,255,255,0.05);
+                    color: white;
                 }
-                .accent-orange {
-                    color: #f97316;
+
+                .nav-item.active {
+                    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                    color: white;
                 }
-                .accent-green {
-                    color: #10b981;
+
+                .nav-item.collapsed {
+                    justify-content: center;
+                    padding: 12px;
                 }
-                .watchlist-btn {
+
+                .stat-card {
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 16px;
+                    padding: 20px;
+                    transition: transform 0.2s;
+                }
+
+                .stat-card:hover {
+                    transform: translateY(-4px);
+                    background: rgba(255,255,255,0.05);
+                }
+
+                .category-chip {
+                    padding: 8px 16px;
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    color: #94a3b8;
+                }
+
+                .category-chip:hover {
+                    background: rgba(37,99,235,0.1);
+                    border-color: #2563eb;
+                    color: white;
+                }
+
+                .category-chip.active {
+                    background: #2563eb;
+                    border-color: #2563eb;
+                    color: white;
+                }
+
+                .project-card {
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 24px;
+                    padding: 24px;
+                    transition: all 0.3s;
+                }
+
+                .project-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+                    border-color: rgba(37,99,235,0.3);
+                }
+
+                .btn-primary {
                     background: linear-gradient(135deg, #2563eb, #1d4ed8);
                     color: white;
                     border: none;
-                    padding: 10px;
-                    border-radius: 8px;
+                    padding: 12px 20px;
+                    border-radius: 12px;
                     font-weight: 600;
                     cursor: pointer;
-                    width: 100%;
-                    transition: transform 0.2s;
+                    transition: all 0.2s;
                 }
-                .watchlist-btn:hover {
+
+                .btn-primary:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+                    box-shadow: 0 8px 20px rgba(37,99,235,0.3);
+                }
+
+                .btn-outline {
+                    background: transparent;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    color: #94a3b8;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .btn-outline:hover {
+                    border-color: #2563eb;
+                    color: white;
                 }
             `}</style>
 
-            <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
-                <div>
-                    <h1 style={{ fontSize: "2rem", margin: 0 }}>🚀 CryptoScout AI</h1>
-                    <p style={{ color: "#94a3b8", margin: "5px 0 0" }}>AI Crypto Discovery Engine</p>
+            {/* SIDEBAR */}
+            <motion.div 
+                className={`sidebar ${sidebarCollapsed ? 'collapsed' : 'expanded'}`}
+                initial={false}
+                animate={{ width: sidebarCollapsed ? 80 : 280 }}
+                transition={{ duration: 0.3 }}
+            >
+                {/* Logo */}
+                <div style={{ 
+                    padding: sidebarCollapsed ? "20px 0" : "24px 20px",
+                    textAlign: sidebarCollapsed ? "center" : "left",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)"
+                }}>
+                    {sidebarCollapsed ? (
+                        <span style={{ fontSize: "24px" }}>🚀</span>
+                    ) : (
+                        <h2 style={{ fontSize: "1.5rem", background: "linear-gradient(135deg, #60a5fa, #2563eb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                            CryptoScout AI
+                        </h2>
+                    )}
                 </div>
 
-                {!isAuthenticated ? (
-                    <div ref={googleSignInRef}></div>
-                ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                        <span style={{ color: "#94a3b8" }}>Welcome, {user?.name}</span>
-                        <button 
-                            onClick={handleLogout}
-                            style={{
-                                padding: "8px 16px",
-                                background: "rgba(239, 68, 68, 0.1)",
-                                color: "#ef4444",
-                                border: "1px solid rgba(239, 68, 68, 0.3)",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontWeight: "500"
-                            }}
+                {/* Toggle Button */}
+                <div style={{ padding: "16px 12px", textAlign: "right" }}>
+                    <button 
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        className="btn-outline"
+                        style={{ padding: "8px 12px" }}
+                    >
+                        {sidebarCollapsed ? "→" : "←"}
+                    </button>
+                </div>
+
+                {/* Navigation */}
+                <nav style={{ marginTop: "20px" }}>
+                    {[
+                        { icon: "🔍", label: "Discover", view: "discover" },
+                        { icon: "⭐", label: "Watchlist", view: "watchlist" },
+                        { icon: "📊", label: "Portfolio", view: "portfolio" },
+                        { icon: "📈", label: "Analytics", view: "analytics" },
+                    ].map((item) => (
+                        <div
+                            key={item.view}
+                            className={`nav-item ${activeView === item.view ? 'active' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
+                            onClick={() => setActiveView(item.view)}
                         >
-                            Logout
-                        </button>
+                            <span style={{ fontSize: "20px", marginRight: sidebarCollapsed ? 0 : "12px" }}>
+                                {item.icon}
+                            </span>
+                            {!sidebarCollapsed && <span>{item.label}</span>}
+                        </div>
+                    ))}
+                </nav>
+
+                {/* User Section */}
+                {!sidebarCollapsed && (
+                    <div style={{ 
+                        position: "absolute",
+                        bottom: "20px",
+                        left: "20px",
+                        right: "20px"
+                    }}>
+                        {!isAuthenticated ? (
+                            <div ref={googleSignInRef}></div>
+                        ) : (
+                            <div style={{ 
+                                background: "rgba(255,255,255,0.03)",
+                                borderRadius: "12px",
+                                padding: "16px"
+                            }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                                    <div style={{
+                                        width: "40px",
+                                        height: "40px",
+                                        borderRadius: "20px",
+                                        background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: "20px"
+                                    }}>
+                                        {user?.name?.charAt(0) || "U"}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: "600" }}>{user?.name || "User"}</div>
+                                        <div style={{ fontSize: "12px", color: "#94a3b8" }}>{watchlist.length} in watchlist</div>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={handleLogout}
+                                    className="btn-outline"
+                                    style={{ width: "100%" }}
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
-            </header>
+            </motion.div>
 
-            {/* CATEGORY BUTTONS */}
-            <div style={{ marginBottom: "30px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                {categories.map((cat) => (
-                    <motion.button
-                        key={cat}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setCategory(cat)}
-                        style={{
-                            padding: "10px 20px",
-                            background: category === cat ? "#2563eb" : "rgba(255,255,255,0.05)",
-                            color: category === cat ? "white" : "#94a3b8",
-                            border: category === cat ? "none" : "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                            fontWeight: "600",
-                            fontSize: "0.9rem",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px"
-                        }}
-                    >
-                        {cat.replace("-", " ")}
-                    </motion.button>
-                ))}
-            </div>
+            {/* MAIN CONTENT */}
+            <div style={{ 
+                flex: 1,
+                padding: "32px",
+                overflowY: "auto",
+                height: "100vh"
+            }}>
+                {/* Header */}
+                <div style={{ 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center",
+                    marginBottom: "32px"
+                }}>
+                    <div>
+                        <h1 style={{ fontSize: "2rem", marginBottom: "8px" }}>
+                            {activeView === "discover" && "🔍 Discover Projects"}
+                            {activeView === "watchlist" && "⭐ Your Watchlist"}
+                            {activeView === "portfolio" && "📊 Portfolio Tracker"}
+                            {activeView === "analytics" && "📈 Market Analytics"}
+                        </h1>
+                        <p style={{ color: "#94a3b8" }}>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
+                    </div>
 
-            {loading && (
-                <div style={{ textAlign: "center", padding: "50px" }}>
-                    <p style={{ color: "#94a3b8" }}>Loading rankings...</p>
+                    {isAuthenticated && sidebarCollapsed && (
+                        <div ref={googleSignInRef}></div>
+                    )}
                 </div>
-            )}
-            
-            {error && (
-                <div style={{ textAlign: "center", padding: "30px", background: "rgba(239,68,68,0.1)", borderRadius: "12px" }}>
-                    <p style={{ color: "#ef4444" }}>{error}</p>
-                </div>
-            )}
 
-            {!loading && !error && (
-                <div
-                    style={{
+                {/* Dashboard Stats (only show for discover view) */}
+                {activeView === "discover" && !loading && !error && (
+                    <div style={{ 
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-                        gap: "24px",
-                    }}
-                >
-                    {projects.map((project) => (
-                        <motion.div
-                            key={project.symbol}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3 }}
-                            style={{
-                                backdropFilter: "blur(14px)",
-                                background: "rgba(255, 255, 255, 0.03)",
-                                border: "1px solid rgba(255,255,255,0.08)",
-                                borderRadius: "24px",
-                                padding: "24px",
-                                boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
-                                transition: "all 0.3s ease",
-                            }}
-                        >
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "15px" }}>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: "1.2rem" }}>
-                                        {project.name}
-                                        <span style={{ color: "#94a3b8", fontSize: "0.9rem", marginLeft: "5px" }}>
-                                            ({project.symbol})
-                                        </span>
-                                    </h3>
-                                </div>
-
-                                <span
-                                    style={{
-                                        padding: "6px 12px",
-                                        borderRadius: "20px",
-                                        fontSize: "0.75rem",
-                                        fontWeight: "600",
-                                        background:
-                                            project.ai_verdict === "BUY"
-                                                ? "rgba(16,185,129,0.15)"
-                                                : project.ai_verdict === "SELL"
-                                                ? "rgba(239,68,68,0.15)"
-                                                : "rgba(245,158,11,0.15)",
-                                        color:
-                                            project.ai_verdict === "BUY"
-                                                ? "#10b981"
-                                                : project.ai_verdict === "SELL"
-                                                ? "#ef4444"
-                                                : "#f59e0b",
-                                        border: "1px solid rgba(255,255,255,0.08)"
-                                    }}
-                                >
-                                    {project.ai_verdict || "HOLD"}
-                                </span>
+                        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                        gap: "20px",
+                        marginBottom: "32px"
+                    }}>
+                        <div className="stat-card">
+                            <div style={{ color: "#94a3b8", marginBottom: "8px" }}>Total Projects</div>
+                            <div style={{ fontSize: "2rem", fontWeight: "700" }}>{stats.totalProjects}</div>
+                        </div>
+                        <div className="stat-card">
+                            <div style={{ color: "#94a3b8", marginBottom: "8px" }}>Avg AI Score</div>
+                            <div style={{ fontSize: "2rem", fontWeight: "700", color: "#10b981" }}>
+                                {stats.avgScore.toFixed(1)}
                             </div>
+                        </div>
+                        <div className="stat-card">
+                            <div style={{ color: "#94a3b8", marginBottom: "8px" }}>Buy Signals</div>
+                            <div style={{ fontSize: "2rem", fontWeight: "700", color: "#2563eb" }}>{stats.buySignals}</div>
+                        </div>
+                        <div className="stat-card">
+                            <div style={{ color: "#94a3b8", marginBottom: "8px" }}>High Volatility</div>
+                            <div style={{ fontSize: "2rem", fontWeight: "700", color: "#ef4444" }}>{stats.highVolatility}</div>
+                        </div>
+                    </div>
+                )}
 
-                            {/* Score Meter */}
-                            <div style={{ marginTop: "20px" }}>
-                                <div
-                                    style={{
-                                        height: "8px",
-                                        background: "rgba(255,255,255,0.08)",
-                                        borderRadius: "10px",
-                                        overflow: "hidden",
-                                    }}
-                                >
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${(project.combined_score || 0) * 100}%` }}
-                                        transition={{ duration: 0.8, delay: 0.2 }}
-                                        style={{
-                                            background: (project.combined_score || 0) >= 0.7
-                                                ? "linear-gradient(90deg, #10b981, #059669)"
-                                                : (project.combined_score || 0) >= 0.4
-                                                ? "linear-gradient(90deg, #f59e0b, #d97706)"
-                                                : "linear-gradient(90deg, #ef4444, #dc2626)",
-                                            height: "100%",
-                                            borderRadius: "10px",
-                                        }}
-                                    />
-                                </div>
+                {/* Category Filters (only for discover view) */}
+                {activeView === "discover" && (
+                    <div style={{ 
+                        display: "flex", 
+                        gap: "10px", 
+                        marginBottom: "32px",
+                        flexWrap: "wrap"
+                    }}>
+                        {categories.map((cat) => (
+                            <button
+                                key={cat}
+                                className={`category-chip ${category === cat ? 'active' : ''}`}
+                                onClick={() => setCategory(cat)}
+                            >
+                                {cat.replace("-", " ").toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginTop: "8px",
-                                        fontSize: "0.85rem",
-                                        color: "#94a3b8",
-                                    }}
-                                >
-                                    <span>AI Confidence Score</span>
-                                    <strong
-                                        style={{
-                                            fontSize: "1.2rem",
-                                            fontWeight: "700",
-                                            color: (project.ai_score || 0) >= 70
-                                                ? "#10b981"
-                                                : (project.ai_score || 0) >= 40
-                                                ? "#f59e0b"
-                                                : "#ef4444",
-                                        }}
-                                    >
-                                        {project.ai_score?.toFixed(1) || "0.0"}
-                                    </strong>
-                                </div>
+                {/* Content based on active view */}
+                {activeView === "discover" && (
+                    <>
+                        {loading && (
+                            <div style={{ textAlign: "center", padding: "60px" }}>
+                                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔄</div>
+                                <p style={{ color: "#94a3b8" }}>Loading projects...</p>
                             </div>
-
-                            {/* Volatility + Momentum */}
+                        )}
+                        
+                        {error && (
                             <div style={{ 
-                                marginTop: "20px", 
-                                fontSize: "0.9rem",
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: "15px",
-                                background: "rgba(0,0,0,0.2)",
-                                padding: "15px",
-                                borderRadius: "12px"
+                                textAlign: "center", 
+                                padding: "40px",
+                                background: "rgba(239,68,68,0.1)",
+                                borderRadius: "16px"
                             }}>
-                                <div>
-                                    <div style={{ color: "#94a3b8", marginBottom: "5px" }}>Volatility</div>
-                                    <strong
-                                        style={{
-                                            color: project.volatility_heat === "EXTREME"
-                                                ? "#ef4444"
-                                                : project.volatility_heat === "HIGH"
-                                                ? "#f97316"
-                                                : "#10b981",
-                                            fontSize: "1rem"
-                                        }}
-                                    >
-                                        {project.volatility_heat || "LOW"}
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <div style={{ color: "#94a3b8", marginBottom: "5px" }}>Momentum</div>
-                                    <strong style={{ color: "#60a5fa", fontSize: "1rem" }}>
-                                        {project.trend_momentum
-                                            ? `${(project.trend_momentum * 100).toFixed(1)}%`
-                                            : "0.0%"}
-                                    </strong>
-                                </div>
+                                <p style={{ color: "#ef4444" }}>{error}</p>
+                                <button 
+                                    onClick={() => setCategory(category)}
+                                    className="btn-primary"
+                                    style={{ marginTop: "16px" }}
+                                >
+                                    Try Again
+                                </button>
                             </div>
+                        )}
 
-                            {/* Explanation Button */}
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                    if (!explanations[project.symbol]) {
-                                        fetchExplanation(project.symbol);
-                                    }
-                                    setExpandedSymbol(
-                                        expandedSymbol === project.symbol ? null : project.symbol
-                                    );
-                                }}
+                        {!loading && !error && (
+                            <div
                                 style={{
-                                    marginTop: "15px",
-                                    width: "100%",
-                                    background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "12px",
-                                    borderRadius: "12px",
-                                    cursor: "pointer",
-                                    fontSize: "0.9rem",
-                                    fontWeight: "500",
-                                    boxShadow: "0 4px 10px rgba(37,99,235,0.3)"
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))",
+                                    gap: "24px",
                                 }}
                             >
-                                🧠 {explanations[project.symbol] ? "Hide Analysis" : "Show AI Analysis"}
-                            </motion.button>
-
-                            <AnimatePresence>
-                                {expandedSymbol === project.symbol && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        style={{
-                                            overflow: "hidden",
-                                            marginTop: "15px",
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                padding: "16px",
-                                                background: "rgba(255,255,255,0.04)",
-                                                borderRadius: "12px",
-                                                border: "1px solid rgba(255,255,255,0.06)",
-                                                fontSize: "0.9rem",
-                                                color: "#cbd5e1",
-                                                lineHeight: "1.6"
-                                            }}
+                                {projects.map((project) => {
+                                    const isInWatchlist = watchlist.some(item => item.symbol === project.symbol);
+                                    
+                                    return (
+                                        <motion.div
+                                            key={project.symbol}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="project-card"
                                         >
-                                            {explanations[project.symbol] || "Generating analysis..."}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                                            <div style={{ 
+                                                display: "flex", 
+                                                justifyContent: "space-between", 
+                                                alignItems: "flex-start",
+                                                marginBottom: "16px"
+                                            }}>
+                                                <div>
+                                                    <h3 style={{ fontSize: "1.2rem", marginBottom: "4px" }}>
+                                                        {project.name}
+                                                    </h3>
+                                                    <span style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+                                                        {project.symbol}
+                                                    </span>
+                                                </div>
 
-                            {/* Watchlist Button */}
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => handleWatchlist(project.symbol)}
-                                className="watchlist-btn"
-                                style={{
-                                    marginTop: "15px",
-                                    background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "12px",
-                                    borderRadius: "12px",
-                                    fontWeight: "600",
-                                    cursor: "pointer",
-                                    width: "100%"
-                                }}
-                            >
-                                ⭐ Add to Watchlist
-                            </motion.button>
-                        </motion.div>
-                    ))}
-                </div>
-            )}
+                                                <span
+                                                    style={{
+                                                        padding: "6px 12px",
+                                                        borderRadius: "20px",
+                                                        fontSize: "0.75rem",
+                                                        fontWeight: "600",
+                                                        background: project.ai_verdict === "BUY"
+                                                            ? "rgba(16,185,129,0.15)"
+                                                            : project.ai_verdict === "SELL"
+                                                            ? "rgba(239,68,68,0.15)"
+                                                            : "rgba(245,158,11,0.15)",
+                                                        color: project.ai_verdict === "BUY"
+                                                            ? "#10b981"
+                                                            : project.ai_verdict === "SELL"
+                                                            ? "#ef4444"
+                                                            : "#f59e0b"
+                                                    }}
+                                                >
+                                                    {project.ai_verdict || "HOLD"}
+                                                </span>
+                                            </div>
 
-            {!loading && !error && projects.length === 0 && (
-                <div style={{ textAlign: "center", padding: "50px", background: "rgba(255,255,255,0.02)", borderRadius: "16px" }}>
-                    <p style={{ color: "#94a3b8" }}>No projects found for this category.</p>
-                </div>
-            )}
+                                            {/* Score */}
+                                            <div style={{ marginBottom: "16px" }}>
+                                                <div style={{ 
+                                                    display: "flex", 
+                                                    justifyContent: "space-between",
+                                                    marginBottom: "8px",
+                                                    color: "#94a3b8",
+                                                    fontSize: "0.9rem"
+                                                }}>
+                                                    <span>AI Confidence</span>
+                                                    <span style={{ 
+                                                        color: project.ai_score >= 70 ? "#10b981" : 
+                                                               project.ai_score >= 40 ? "#f59e0b" : "#ef4444",
+                                                        fontWeight: "600"
+                                                    }}>
+                                                        {project.ai_score?.toFixed(1) || "0.0"}%
+                                                    </span>
+                                                </div>
+                                                <div style={{
+                                                    height: "6px",
+                                                    background: "rgba(255,255,255,0.08)",
+                                                    borderRadius: "3px",
+                                                    overflow: "hidden"
+                                                }}>
+                                                    <motion.div
+                                                        initial={{ width: 0 }}
+                                                        animate={{ width: `${project.ai_score || 0}%` }}
+                                                        transition={{ duration: 0.8 }}
+                                                        style={{
+                                                            height: "100%",
+                                                            background: project.ai_score >= 70
+                                                                ? "linear-gradient(90deg, #10b981, #059669)"
+                                                                : project.ai_score >= 40
+                                                                ? "linear-gradient(90deg, #f59e0b, #d97706)"
+                                                                : "linear-gradient(90deg, #ef4444, #dc2626)",
+                                                            borderRadius: "3px"
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Metrics */}
+                                            <div style={{ 
+                                                display: "grid",
+                                                gridTemplateColumns: "1fr 1fr",
+                                                gap: "12px",
+                                                marginBottom: "16px",
+                                                padding: "12px",
+                                                background: "rgba(0,0,0,0.2)",
+                                                borderRadius: "12px"
+                                            }}>
+                                                <div>
+                                                    <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginBottom: "4px" }}>
+                                                        Volatility
+                                                    </div>
+                                                    <span style={{
+                                                        color: project.volatility_heat === "EXTREME" ? "#ef4444" :
+                                                               project.volatility_heat === "HIGH" ? "#f97316" : "#10b981",
+                                                        fontWeight: "600"
+                                                    }}>
+                                                        {project.volatility_heat || "LOW"}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginBottom: "4px" }}>
+                                                        Momentum
+                                                    </div>
+                                                    <span style={{ color: "#60a5fa", fontWeight: "600" }}>
+                                                        {project.trend_momentum
+                                                            ? `${(project.trend_momentum * 100).toFixed(1)}%`
+                                                            : "0.0%"}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div style={{ display: "flex", gap: "10px" }}>
+                                                <button
+                                                    onClick={() => {
+                                                        if (!explanations[project.symbol]) {
+                                                            fetchExplanation(project.symbol);
+                                                        }
+                                                        setExpandedSymbol(
+                                                            expandedSymbol === project.symbol ? null : project.symbol
+                                                        );
+                                                    }}
+                                                    className="btn-outline"
+                                                    style={{ flex: 1 }}
+                                                >
+                                                    {explanations[project.symbol] ? "📝 Hide" : "🧠 Analyze"}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleWatchlist(project.symbol)}
+                                                    className="btn-primary"
+                                                    style={{ flex: 1 }}
+                                                >
+                                                    {isInWatchlist ? "⭐ Added" : "⭐ Add"}
+                                                </button>
+                                            </div>
+
+                                            {/* Explanation */}
+                                            <AnimatePresence>
+                                                {expandedSymbol === project.symbol && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: "auto", opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.3 }}
+                                                        style={{
+                                                            overflow: "hidden",
+                                                            marginTop: "16px"
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            padding: "16px",
+                                                            background: "rgba(255,255,255,0.02)",
+                                                            borderRadius: "12px",
+                                                            border: "1px solid rgba(255,255,255,0.05)",
+                                                            fontSize: "0.9rem",
+                                                            color: "#cbd5e1",
+                                                            lineHeight: "1.6"
+                                                        }}>
+                                                            {explanations[project.symbol] || "Generating AI analysis..."}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* Watchlist View */}
+                {activeView === "watchlist" && (
+                    <div>
+                        {watchlist.length === 0 ? (
+                            <div style={{ 
+                                textAlign: "center", 
+                                padding: "60px",
+                                background: "rgba(255,255,255,0.02)",
+                                borderRadius: "24px"
+                            }}>
+                                <div style={{ fontSize: "48px", marginBottom: "20px" }}>⭐</div>
+                                <h3 style={{ marginBottom: "12px" }}>Your watchlist is empty</h3>
+                                <p style={{ color: "#94a3b8", marginBottom: "24px" }}>
+                                    Start adding projects to track them here
+                                </p>
+                                <button 
+                                    onClick={() => setActiveView("discover")}
+                                    className="btn-primary"
+                                >
+                                    Discover Projects
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                                gap: "20px"
+                            }}>
+                                {watchlist.map((item) => (
+                                    <div key={item.symbol} className="project-card">
+                                        <h3>{item.name} ({item.symbol})</h3>
+                                        <p style={{ color: "#94a3b8", marginTop: "8px" }}>
+                                            Added on {new Date(item.added_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Portfolio View (Placeholder) */}
+                {activeView === "portfolio" && (
+                    <div style={{ 
+                        textAlign: "center", 
+                        padding: "60px",
+                        background: "rgba(255,255,255,0.02)",
+                        borderRadius: "24px"
+                    }}>
+                        <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
+                        <h3 style={{ marginBottom: "12px" }}>Portfolio Tracker Coming Soon</h3>
+                        <p style={{ color: "#94a3b8" }}>
+                            Track your crypto investments and performance
+                        </p>
+                    </div>
+                )}
+
+                {/* Analytics View (Placeholder) */}
+                {activeView === "analytics" && (
+                    <div style={{ 
+                        textAlign: "center", 
+                        padding: "60px",
+                        background: "rgba(255,255,255,0.02)",
+                        borderRadius: "24px"
+                    }}>
+                        <div style={{ fontSize: "48px", marginBottom: "20px" }}>📈</div>
+                        <h3 style={{ marginBottom: "12px" }}>Market Analytics Coming Soon</h3>
+                        <p style={{ color: "#94a3b8" }}>
+                            Advanced charts and market insights
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
