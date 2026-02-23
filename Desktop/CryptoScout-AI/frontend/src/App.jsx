@@ -2,6 +2,7 @@
 // src/App.jsx
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import Home from "./pages/Home";
 import MonitoringDashboard from "./components/MonitoringDashboard";
@@ -17,9 +18,9 @@ function App() {
                 <Route 
 			path="/monitor"
   			element={
-    				user?.email === "webappsforfun@gmail.com"
-      				  ? <MonitoringDashboard />
-      				  : <div>Unauthorized</div>
+    				<ProtectedRoute>
+      					<MonitoringDashboard />
+    				</ProtectedRoute>
   		        } 
 	        />
             </Routes>
