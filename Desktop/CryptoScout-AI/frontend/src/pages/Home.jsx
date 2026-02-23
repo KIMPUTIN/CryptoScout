@@ -311,7 +311,7 @@ function Home() {
                                                     ? "#10b981"
                                                     : project.combined_score >= 0.3
                                                     ? "#f59e0b"
-                                                    : "#ef4444"
+                                                    : "#ef4444",
                                             height: "100%",
                                             transition: "width 0.3s ease",
                                         }}
