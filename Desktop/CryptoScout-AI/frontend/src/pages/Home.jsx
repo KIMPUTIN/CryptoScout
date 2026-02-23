@@ -52,7 +52,7 @@ function Home() {
 
             const data = await res.json();
 
-            localStorage.setItem("token", data.token);
+            localStorage.setItem("token", data.access_token);
             localStorage.setItem("user", JSON.stringify(data.user));
             setUser(data.user);
             setIsAuthenticated(true);
