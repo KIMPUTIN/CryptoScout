@@ -81,48 +81,30 @@ def compute_trend_acceleration(project: Dict) -> float:
 
 def compute_combined_score(project: Dict, profile: str = "balanced") -> float:
 
+    market_cap = float(project.get("market_cap") or 0)
     ai_score = float(project.get("ai_score") or 0) / 100
     sentiment = float(project.get("sentiment_score") or 0)
+    change_24h = float(project.get("price_change_24h") or 0)
+    change_7d = float(project.get("price_change_7d") or 0)
 
-    momentum = compute_trend_momentum(project)
-    volatility = abs(float(project.get("price_change_24h") or 0)) / 100
-    market_cap_score = compute_market_cap_score(project)
-    volume_pressure = compute_volume_pressure(project)
-    acceleration = compute_trend_acceleration(project)
+    momentum = (0.6 * change_7d + 0.4 * change_24h) / 100
 
-    # ---------------- PRO WEIGHTING ----------------
+    volatility_penalty = min(abs(change_24h) / 50, 1) ** 1.3
 
-    if profile == "aggressive":
-        score = (
-            0.25 * momentum +
-            0.20 * acceleration +
-            0.20 * ai_score +
-            0.15 * sentiment +
-            0.10 * volume_pressure +
-            0.10 * volatility
-        )
+    stability_factor = min(market_cap / 5_000_000_000, 1)
 
-    elif profile == "conservative":
-        score = (
-            0.35 * market_cap_score +
-            0.20 * sentiment +
-            0.20 * ai_score +
-            0.15 * volume_pressure -
-            0.20 * volatility
-        )
+    base_score = (
+        0.35 * momentum +
+        0.25 * ai_score +
+        0.20 * sentiment +
+        0.20 * stability_factor
+    )
 
-    else:  # balanced
-        score = (
-            0.25 * momentum +
-            0.20 * ai_score +
-            0.15 * sentiment +
-            0.15 * market_cap_score +
-            0.15 * volume_pressure -
-            0.10 * volatility
-        )
+    adjusted_score = base_score - (0.25 * volatility_penalty)
 
-    return round(score, 4)
+    final_score = max(0, min(1, adjusted_score))
 
+    return round(final_score, 4)
 
 # =====================================================
 # RANKING ENGINE

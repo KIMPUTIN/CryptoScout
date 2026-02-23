@@ -209,44 +209,126 @@ function Home() {
                         <div
                             key={project.symbol}
                             style={{
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "12px",
+                                background: "var(--bg-card)",
+                                border: "1px solid var(--border-color)",
+                                borderRadius: "16px",
                                 padding: "20px",
-                                background: "#fff",
+                                transition: "all 0.2s ease",
                             }}
                         >
-                            <h3>
-                                {project.name} ({project.symbol})
-                            </h3>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <h3>
+                                    {project.name}
+                                    <span style={{ color: "var(--text-secondary)" }}>
+                                        {" "}({project.symbol})
+                                    </span>
+                                </h3>
 
-                            <p>
-                                <strong>Score:</strong>{" "}
-                                {project.combined_score !== undefined
-                                    ? (project.combined_score * 100).toFixed(1)
-                                    : "N/A"}
-                            </p>
+                                <span
+                                    style={{
+                                        background:
+                                            project.ai_verdict === "STRONG BUY"
+                                                ? "var(--accent-green)"
+                                                : project.ai_verdict === "BUY"
+                                                ? "var(--accent-blue)"
+                                                : project.ai_verdict === "HOLD"
+                                                ? "var(--accent-orange)"
+                                                : "var(--accent-red)",
+                                        padding: "4px 10px",
+                                        borderRadius: "20px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: "600",
+                                    }}
+                                >
+                                    {project.ai_verdict}
+                                </span>
+                            </div>
 
-                            <p>
-                                <strong>Verdict:</strong>{" "}
-                                {project.ai_verdict || "N/A"}
-                            </p>
 
-                            <button
-                                onClick={() => handleWatchlist(project.symbol)}
-                                disabled={!isAuthenticated}
-                                style={{
-                                    marginTop: "10px",
-                                    width: "100%",
-                                    padding: "8px",
-                                    background: isAuthenticated ? "#2563eb" : "#ccc",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                }}
-                            >
-                                ⭐ Add to Watchlist
-                            </button>
-                        </div>
+                            {/* Score Meter */}
+                            <div style={{ marginTop: "15px" }}>
+                                <div
+                                    style={{
+                                        height: "8px",
+                                        background: "var(--border-color)",
+                                        borderRadius: "10px",
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            width: `${project.combined_score * 100}%`,
+                                            background:
+                                                project.combined_score >= 0.7
+                                                    ? "var(--accent-green)"
+                                                    : project.combined_score >= 0.4
+                                                    ? "var(--accent-orange)"
+                                                    : "var(--accent-red)",
+                                            height: "100%",
+                                            transition: "width 0.3s ease",
+                                        }}
+                                    />
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        marginTop: "6px",
+                                        fontSize: "0.85rem",
+                                        color: "var(--text-secondary)",
+                                    }}
+                                >
+                                    <span>Score</span>
+                                    <strong>
+                                        {(project.combined_score * 100).toFixed(1)}
+                                    </strong>
+                                </div>
+                            </div>
+
+
+                            {/* Volatility + Momentum */}
+                                <div style={{ marginTop: "15px", fontSize: "0.85rem" }}>
+                                    <div>
+                                        Volatility:{" "}
+                                        <strong
+                                            style={{
+                                                color:
+                                                    project.volatility_heat === "EXTREME"
+                                                        ? "var(--accent-red)"
+                                                        : project.volatility_heat === "HIGH"
+                                                        ? "var(--accent-orange)"
+                                                        : "var(--accent-green)",
+                                            }}
+                                        >
+                                            {project.volatility_heat}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        Trend Momentum:{" "}
+                                        <strong>
+                                            {(project.trend_momentum * 100).toFixed(2)}%
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => handleWatchlist(project.symbol)}
+                                    style={{
+                                        marginTop: "15px",
+                                        width: "100%",
+                                        padding: "10px",
+                                        background: "var(--accent-blue)",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        fontWeight: "600",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    ⭐ Add to Watchlist
+                                </button>
+                            </div>
                     ))}
                 </div>
             )}
