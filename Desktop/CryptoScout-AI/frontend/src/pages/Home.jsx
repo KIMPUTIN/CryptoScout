@@ -14,6 +14,9 @@ function Home() {
 
     const googleSignInRef = useRef(null);
 
+    const [expandedSymbol, setExpandedSymbol] = useState(null);
+    const [explanations, setExplanations] = useState({});
+
     // =====================================
     // CHECK EXISTING SESSION
     // =====================================
@@ -150,6 +153,33 @@ function Home() {
         }
     };
 
+
+    // =====================================
+    // FETCH FUNCTION
+    // =====================================
+
+    const fetchExplanation = async (symbol) => {
+    try {
+        const res = await fetch(
+            `${import.meta.env.VITE_API_URL}/ai/explain/${symbol}`
+        );
+        const data = await res.json();
+
+        setExplanations(prev => ({
+            ...prev,
+            [symbol]: data.explanation
+        }));
+
+    } catch {
+        setExplanations(prev => ({
+            ...prev,
+            [symbol]: "Unable to generate explanation."
+        }));
+    }
+};
+
+
+
     // =====================================
     // UI
     // =====================================
@@ -285,6 +315,45 @@ function Home() {
                                     </strong>
                                 </div>
                             </div>
+
+
+                            {/* Reasons */}
+                            <button
+                                onClick={() => {
+                                    if (!explanations[project.symbol]) {
+                                        fetchExplanation(project.symbol);
+                                    }
+                                    setExpandedSymbol(
+                                        expandedSymbol === project.symbol ? null : project.symbol
+                                    );
+                                }}
+                                style={{
+                                    marginTop: "10px",
+                                    background: "transparent",
+                                    border: "1px solid var(--border-color)",
+                                    padding: "6px",
+                                    borderRadius: "8px",
+                                    cursor: "pointer"
+                                }}
+                            >
+                                🧠 Why Trending?
+                            </button>
+
+                            {expandedSymbol === project.symbol && (
+                                <div
+                                    style={{
+                                        marginTop: "10px",
+                                        padding: "10px",
+                                        background: "var(--bg-hover)",
+                                        borderRadius: "10px",
+                                        fontSize: "0.85rem",
+                                        color: "var(--text-secondary)",
+                                        lineHeight: "1.5"
+                                    }}
+                                >
+                                    {explanations[project.symbol] || "Generating explanation..."}
+                                </div>
+                            )}
 
 
                             {/* Volatility + Momentum */}

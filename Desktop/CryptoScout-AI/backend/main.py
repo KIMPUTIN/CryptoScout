@@ -22,6 +22,8 @@ from api.routes_alerts import router as alerts_router
 from api.routes_ws import router as ws_router
 from fastapi import Response
 
+from api.routes_ai import router as ai_router
+
 
 
 # =====================================================
@@ -97,6 +99,7 @@ app.include_router(monitor_router)
 app.include_router(backtest_router)
 app.include_router(alerts_router)
 app.include_router(ws_router)
+app.include_router(ai_router)
 
 
 
