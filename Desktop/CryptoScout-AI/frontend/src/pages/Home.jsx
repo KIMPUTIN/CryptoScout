@@ -1,6 +1,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { fetchRanking } from "../api";
+import { motion, AnimatePresence } from "framer-motion";
 
 function Home() {
     const [projects, setProjects] = useState([]);
@@ -184,7 +185,15 @@ function Home() {
     // UI
     // =====================================
     return (
-        <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "radial-gradient(circle at 20% 20%, #1e293b, #0f172a)",
+                padding: "40px 24px",
+                fontFamily: "'Inter', sans-serif",
+                color: "#f8fafc"
+            }}
+        >
             <header style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
                 <div>
                     <h1>🚀 CryptoScout AI</h1>
@@ -235,15 +244,18 @@ function Home() {
                         gap: "20px",
                     }}
                 >
+                    /*Project card container */
                     {projects.map((project) => (
                         <div
                             key={project.symbol}
                             style={{
-                                background: "var(--bg-card)",
-                                border: "1px solid var(--border-color)",
-                                borderRadius: "16px",
-                                padding: "20px",
-                                transition: "all 0.2s ease",
+                                backdropFilter: "blur(14px)",
+                                background: "rgba(255, 255, 255, 0.05)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                                borderRadius: "18px",
+                                padding: "22px",
+                                boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
+                                transition: "all 0.3s ease",
                             }}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -256,22 +268,28 @@ function Home() {
 
                                 <span
                                     style={{
-                                        background:
-                                            project.ai_verdict === "STRONG BUY"
-                                                ? "var(--accent-green)"
-                                                : project.ai_verdict === "BUY"
-                                                ? "var(--accent-blue)"
-                                                : project.ai_verdict === "HOLD"
-                                                ? "var(--accent-orange)"
-                                                : "var(--accent-red)",
-                                        padding: "4px 10px",
+                                        padding: "6px 12px",
                                         borderRadius: "20px",
                                         fontSize: "0.75rem",
                                         fontWeight: "600",
+                                        background:
+                                            project.ai_verdict === "BUY"
+                                                ? "rgba(16,185,129,0.15)"
+                                                : project.ai_verdict === "SELL"
+                                                ? "rgba(239,68,68,0.15)"
+                                                : "rgba(245,158,11,0.15)",
+                                        color:
+                                            project.ai_verdict === "BUY"
+                                                ? "#10b981"
+                                                : project.ai_verdict === "SELL"
+                                                ? "#ef4444"
+                                                : "#f59e0b",
+                                        border: "1px solid rgba(255,255,255,0.08)"
                                     }}
                                 >
-                                    {project.ai_verdict}
+                                    {project.ai_verdict || "N/A"}
                                 </span>
+
                             </div>
 
 
@@ -280,7 +298,7 @@ function Home() {
                                 <div
                                     style={{
                                         height: "8px",
-                                        background: "var(--border-color)",
+                                        background: "rgba(255,255,255,0.08)",
                                         borderRadius: "10px",
                                         overflow: "hidden",
                                     }}
@@ -289,11 +307,11 @@ function Home() {
                                         style={{
                                             width: `${project.combined_score * 100}%`,
                                             background:
-                                                project.combined_score >= 0.7
-                                                    ? "var(--accent-green)"
-                                                    : project.combined_score >= 0.4
-                                                    ? "var(--accent-orange)"
-                                                    : "var(--accent-red)",
+                                                project.combined_score >= 0.5
+                                                    ? "#10b981"
+                                                    : project.combined_score >= 0.3
+                                                    ? "#f59e0b"
+                                                    : "#ef4444"
                                             height: "100%",
                                             transition: "width 0.3s ease",
                                         }}
@@ -306,19 +324,34 @@ function Home() {
                                         justifyContent: "space-between",
                                         marginTop: "6px",
                                         fontSize: "0.85rem",
-                                        color: "var(--text-secondary)",
+                                        color: "#94a3b8",
                                     }}
                                 >
                                     <span>Score</span>
-                                    <strong>
-                                        {(project.combined_score * 100).toFixed(1)}
+                                    <strong
+                                        style={{
+                                            fontSize: "1.2rem",
+                                            fontWeight: "700",
+                                            background:
+                                                project.ai_score >= 70
+                                                    ? "linear-gradient(135deg,#10b981,#059669)"
+                                                    : project.ai_score >= 40
+                                                    ? "linear-gradient(135deg,#f59e0b,#d97706)"
+                                                    : "linear-gradient(135deg,#ef4444,#dc2626)",
+                                            WebkitBackgroundClip: "text",
+                                            WebkitTextFillColor: "transparent",
+                                        }}
+                                    >
+                                        {project.ai_score?.toFixed(1) || "N/A"}
                                     </strong>
                                 </div>
                             </div>
 
 
-                            {/* Reasons */}
-                            <button
+                            {/* Explanation */}
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
                                 onClick={() => {
                                     if (!explanations[project.symbol]) {
                                         fetchExplanation(project.symbol);
@@ -328,32 +361,53 @@ function Home() {
                                     );
                                 }}
                                 style={{
-                                    marginTop: "10px",
-                                    background: "transparent",
-                                    border: "1px solid var(--border-color)",
-                                    padding: "6px",
-                                    borderRadius: "8px",
-                                    cursor: "pointer"
+                                    marginTop: "12px",
+                                    background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
+                                    color: "white",
+                                    border: "none",
+                                    padding: "8px 14px",
+                                    borderRadius: "10px",
+                                    cursor: "pointer",
+                                    fontSize: "0.85rem",
+                                    fontWeight: "500",
+                                    boxShadow: "0 4px 10px rgba(37,99,235,0.3)"
                                 }}
                             >
-                                🧠 Why Trending?
-                            </button>
+                                🧠 Why Trending
+                            </motion.button>
 
-                            {expandedSymbol === project.symbol && (
-                                <div
-                                    style={{
-                                        marginTop: "10px",
-                                        padding: "10px",
-                                        background: "var(--bg-hover)",
-                                        borderRadius: "10px",
-                                        fontSize: "0.85rem",
-                                        color: "var(--text-secondary)",
-                                        lineHeight: "1.5"
-                                    }}
-                                >
-                                    {explanations[project.symbol] || "Generating explanation..."}
-                                </div>
-                            )}
+                            <AnimatePresence>
+                                {expandedSymbol === project.symbol && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.35, ease: "easeInOut" }}
+                                        style={{
+                                            overflow: "hidden",
+                                            marginTop: "12px",
+                                            borderRadius: "16px",
+                                            background: "rgba(255,255,255,0.04)",
+                                            backdropFilter: "blur(12px)",
+                                            border: "1px solid rgba(255,255,255,0.06)",
+                                            padding: "0 16px",
+                                        }}
+                                    >
+                                        <motion.div
+                                            whileHover={{ y: -4 }}
+                                            transition={{ type: "spring", stiffness: 120 }}
+                                            style={{
+                                                padding: "16px 0",
+                                                fontSize: "0.9rem",
+                                                color: "#cbd5e1",
+                                                lineHeight: "1.6"
+                                            }}
+                                        >
+                                            {explanations[project.symbol] || "Generating explanation..."}
+                                        </motion.div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
 
                             {/* Volatility + Momentum */}
@@ -370,14 +424,16 @@ function Home() {
                                                         : "var(--accent-green)",
                                             }}
                                         >
-                                            {project.volatility_heat}
+                                            {project.volatility_heat || "LOW"}
                                         </strong>
                                     </div>
 
                                     <div>
                                         Trend Momentum:{" "}
                                         <strong>
-                                            {(project.trend_momentum * 100).toFixed(2)}%
+                                            {project.trend_momentum
+                                                ? (project.trend_momentum * 100).toFixed(2)
+                                                : "0.00"}%
                                         </strong>
                                     </div>
                                 </div>
@@ -388,7 +444,7 @@ function Home() {
                                         marginTop: "15px",
                                         width: "100%",
                                         padding: "10px",
-                                        background: "var(--accent-blue)",
+                                        background: "#2563eb",
                                         border: "none",
                                         borderRadius: "8px",
                                         fontWeight: "600",

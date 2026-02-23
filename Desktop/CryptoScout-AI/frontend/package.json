@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "framer-motion": "^12.34.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.13.0",
-    "serve": "^13.0.4"
+    "serve": "^14.2.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
