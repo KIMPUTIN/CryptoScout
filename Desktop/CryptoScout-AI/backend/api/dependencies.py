@@ -1,9 +1,13 @@
 
+from datetime import datetime
+from api.dependencies import get_current_user  
 from fastapi import Depends, Header, HTTPException
 import jwt
 
 from core.config import JWT_SECRET, JWT_ALGORITHM
 from database.repository import get_user_by_id
+from your_auth_file import get_current_user  # adjust import
+
 
 
 def get_current_user(authorization: str = Header(None)):
@@ -27,3 +31,22 @@ def get_current_user(authorization: str = Header(None)):
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def require_pro(current_user = Depends(get_current_user)):
+
+    # No subscription at all
+    if not current_user.subscription_expires_at:
+        raise HTTPException(
+            status_code=403,
+            detail="Trader Mode required"
+        )
+
+    # Expired subscription
+    if current_user.subscription_expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=403,
+            detail="Subscription expired"
+        )
+
+    return current_user

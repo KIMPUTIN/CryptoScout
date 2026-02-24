@@ -23,6 +23,7 @@ from api.routes_ws import router as ws_router
 from fastapi import Response
 
 from api.routes_ai import router as ai_router
+from payments import router as payments_router
 
 
 
@@ -100,6 +101,7 @@ app.include_router(backtest_router)
 app.include_router(alerts_router)
 app.include_router(ws_router)
 app.include_router(ai_router)
+app.include_router(payments_router)
 
 
 

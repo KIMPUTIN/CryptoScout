@@ -1,10 +1,19 @@
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from api.dependencies import require_pro
 from services.explanation_service import generate_trending_explanation
+from services.ai_service import analyze_coin  # adjust if different
+from schemas.ai import AIRequest  # adjust if your schema path differs
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
 
 @router.get("/explain/{symbol}")
-def explain(symbol: str):
+async def explain(symbol: str, user=Depends(require_pro)):
     return generate_trending_explanation(symbol)
+
+
+@router.post("/analyze")
+async def analyze(request: AIRequest, user=Depends(require_pro)):
+    return analyze_coin(request.symbol)
+    
