@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from api.dependencies import require_pro
 from services.explanation_service import generate_trending_explanation
 from services.ai_service import analyze_project  # adjust if different
-from schemas.ai import AIRequest  # adjust if your schema path differs
+from models.schemas import AIRequest  # adjust if your schema path differs
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
