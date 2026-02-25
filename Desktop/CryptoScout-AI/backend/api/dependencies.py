@@ -1,12 +1,15 @@
 
+
 from datetime import datetime
-from api.dependencies import get_current_user  
 from fastapi import Depends, Header, HTTPException
 import jwt
 
 from core.config import JWT_SECRET, JWT_ALGORITHM
 from database.repository import get_user_by_id
-from your_auth_file import get_current_user  # adjust import
+
+#from fastapi.security import OAuth2PasswordBearer ????
+#from api.dependencies import get_current_user -------Delete 
+#from your_auth_file import get_current_user  # adjust import ----Delete
 
 
 
@@ -50,3 +53,12 @@ def require_pro(current_user = Depends(get_current_user)):
         )
 
     return current_user
+
+
+
+#NOTE: Dependencies must not import routes.
+# ------ Correct direction:
+#        routes_* → dependencies
+#        dependencies → nothing from routes
+
+#        Never reverse it.
