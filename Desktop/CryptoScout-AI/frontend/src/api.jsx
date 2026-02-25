@@ -1,5 +1,5 @@
 
-//const API_BASE = "https://cryptoscout-production.up.railway.app";
+//const API_BASE = "https://cryptoscout-production-863c.up.railway.app;
 const API_BASE = import.meta.env.VITE_API_URL;
 
 
@@ -31,4 +31,5 @@ export async function fetchRanking(type) {
   }
 }
 
+console.log("API_BASE:", API_BASE);
 
