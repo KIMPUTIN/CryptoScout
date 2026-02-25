@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Request, HTTPException
 from coinbase_commerce.client import Client
 from api.dependencies import get_current_user   
-from database.db import get_user_by_id, update_user_subscription  # adjust
+from database.repository import get_user_by_id  
 
 router = APIRouter()
 
