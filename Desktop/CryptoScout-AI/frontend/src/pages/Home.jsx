@@ -10,7 +10,7 @@ function Home() {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [activeView, setActiveView] = useState("discover"); // discover, watchlist, portfolio, analytics
+    const [activeView, setActiveView] = useState("discover");
 
     const categories = ["short-term", "long-term", "low-risk", "high-growth"];
     const [category, setCategory] = useState("short-term");
@@ -20,6 +20,14 @@ function Home() {
     const [expandedSymbol, setExpandedSymbol] = useState(null);
     const [explanations, setExplanations] = useState({});
     const [watchlist, setWatchlist] = useState([]);
+
+    // Helper function to ensure HTTPS URLs
+    const getSecureApiUrl = (endpoint) => {
+        const baseUrl = import.meta.env.VITE_API_URL;
+        // Ensure the base URL uses HTTPS
+        const secureBaseUrl = baseUrl.replace('http://', 'https://');
+        return `${secureBaseUrl}${endpoint}`;
+    };
 
     // =====================================
     // CHECK EXISTING SESSION
@@ -41,14 +49,14 @@ function Home() {
     }, []);
 
     // =====================================
-    // FETCH WATCHLIST
+    // FETCH WATCHLIST - FIXED HTTPS ISSUE
     // =====================================
     const fetchWatchlist = async () => {
         try {
             const token = localStorage.getItem("token");
             if (!token) return;
 
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/watchlist`, {
+            const res = await fetch(getSecureApiUrl('/watchlist'), {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             
@@ -62,14 +70,14 @@ function Home() {
     };
 
     // =====================================
-    // GOOGLE LOGIN
+    // GOOGLE LOGIN - FIXED HTTPS ISSUE
     // =====================================
     const handleCredentialResponse = useCallback(async (response) => {
         try {
             const token = response.credential;
 
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/auth/google`,
+                getSecureApiUrl('/auth/google'),
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -155,7 +163,7 @@ function Home() {
     };
 
     // =====================================
-    // WATCHLIST
+    // WATCHLIST - FIXED HTTPS ISSUE
     // =====================================
     const handleWatchlist = async (symbol) => {
         try {
@@ -166,7 +174,7 @@ function Home() {
             const endpoint = isInWatchlist ? 'remove' : 'add';
 
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/watchlist/${endpoint}/${symbol}`,
+                getSecureApiUrl(`/watchlist/${endpoint}/${symbol}`),
                 {
                     method: "POST",
                     headers: {
@@ -186,12 +194,12 @@ function Home() {
     };
 
     // =====================================
-    // FETCH EXPLANATION
+    // FETCH EXPLANATION - FIXED HTTPS ISSUE
     // =====================================
     const fetchExplanation = useCallback(async (symbol) => {
         try {
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/ai/explain/${symbol}`
+                getSecureApiUrl(`/ai/explain/${symbol}`)
             );
             const data = await res.json();
 
@@ -222,7 +230,7 @@ function Home() {
     const stats = getDashboardStats();
 
     // =====================================
-    // UI
+    // UI (rest of your component remains the same)
     // =====================================
     return (
         <div style={{

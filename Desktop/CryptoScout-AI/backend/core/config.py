@@ -50,5 +50,5 @@ RANKING_CACHE_DURATION = timedelta(minutes=5)
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173"
+    "https://localhost:5173"
 ).split(",")
