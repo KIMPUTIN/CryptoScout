@@ -41,7 +41,7 @@ setup_logging()
 app = FastAPI(title=APP_NAME)
 
 
-@app.middleware("http")
+@app.middleware("https")
 async def coop_fix(request, call_next):
     response = await call_next(request)
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"

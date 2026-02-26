@@ -50,6 +50,5 @@ RANKING_CACHE_DURATION = timedelta(minutes=5)
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-     #"https://cryptoscout-production-863c.up.railway.app"
-     "const API_BASE = import.meta.env.VITE_API_URL"
+    "http://localhost:5173"
 ).split(",")
