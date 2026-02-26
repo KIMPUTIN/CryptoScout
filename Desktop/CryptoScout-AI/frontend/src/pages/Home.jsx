@@ -20,13 +20,38 @@ function Home() {
     const [expandedSymbol, setExpandedSymbol] = useState(null);
     const [explanations, setExplanations] = useState({});
     const [watchlist, setWatchlist] = useState([]);
+    const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-    // Helper function to ensure HTTPS URLs
+    // Helper function to ensure HTTPS URLs with better error handling
     const getSecureApiUrl = (endpoint) => {
         const baseUrl = import.meta.env.VITE_API_URL;
-        // Ensure the base URL uses HTTPS
-        const secureBaseUrl = baseUrl.replace('http://', 'https://');
-        return `${secureBaseUrl}${endpoint}`;
+        
+        // Log the original URL for debugging
+        console.log('Original API URL:', baseUrl);
+        
+        // Ensure we have a valid baseUrl
+        if (!baseUrl) {
+            console.error('VITE_API_URL is not defined');
+            return null;
+        }
+        
+        // Force HTTPS by replacing http with https
+        let secureBaseUrl = baseUrl;
+        if (secureBaseUrl.startsWith('http://')) {
+            secureBaseUrl = secureBaseUrl.replace('http://', 'https://');
+            console.log('Converted to HTTPS:', secureBaseUrl);
+        }
+        
+        // Remove trailing slash if present
+        secureBaseUrl = secureBaseUrl.replace(/\/$/, '');
+        
+        // Ensure endpoint starts with slash
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        
+        const fullUrl = `${secureBaseUrl}${cleanEndpoint}`;
+        console.log('Final URL:', fullUrl);
+        
+        return fullUrl;
     };
 
     // =====================================
@@ -40,7 +65,6 @@ function Home() {
             try {
                 setUser(JSON.parse(savedUser));
                 setIsAuthenticated(true);
-                fetchWatchlist();
             } catch {
                 localStorage.removeItem("token");
                 localStorage.removeItem("user");
@@ -48,24 +72,53 @@ function Home() {
         }
     }, []);
 
+    // Fetch watchlist when authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchWatchlist();
+        }
+    }, [isAuthenticated]);
+
     // =====================================
-    // FETCH WATCHLIST - FIXED HTTPS ISSUE
+    // FETCH WATCHLIST - WITH BETTER ERROR HANDLING
     // =====================================
     const fetchWatchlist = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) return;
+        const token = localStorage.getItem("token");
+        if (!token) {
+            console.log('No token found, skipping watchlist fetch');
+            return;
+        }
 
-            const res = await fetch(getSecureApiUrl('/watchlist'), {
-                headers: { "Authorization": `Bearer ${token}` }
+        setWatchlistLoading(true);
+        
+        try {
+            const url = getSecureApiUrl('/watchlist');
+            if (!url) {
+                throw new Error('API URL is not configured');
+            }
+
+            console.log('Fetching watchlist from:', url);
+            
+            const res = await fetch(url, {
+                headers: { 
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
             });
             
-            if (res.ok) {
-                const data = await res.json();
-                setWatchlist(data);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
             }
+            
+            const data = await res.json();
+            console.log('Watchlist data received:', data);
+            setWatchlist(Array.isArray(data) ? data : []);
+            
         } catch (error) {
-            console.error("Failed to fetch watchlist");
+            console.error("Failed to fetch watchlist:", error.message);
+            // Don't show alert to user, just log it
+        } finally {
+            setWatchlistLoading(false);
         }
     };
 
@@ -75,35 +128,46 @@ function Home() {
     const handleCredentialResponse = useCallback(async (response) => {
         try {
             const token = response.credential;
+            console.log('Google login response received');
 
-            const res = await fetch(
-                getSecureApiUrl('/auth/google'),
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ token }),
-                }
-            );
+            const url = getSecureApiUrl('/auth/google');
+            if (!url) {
+                throw new Error('API URL is not configured');
+            }
 
-            if (!res.ok) throw new Error("Authentication failed");
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.text();
+                console.error('Auth failed:', errorData);
+                throw new Error("Authentication failed");
+            }
 
             const data = await res.json();
+            console.log('Auth successful');
 
             localStorage.setItem("token", data.access_token);
             localStorage.setItem("user", JSON.stringify(data.user));
             setUser(data.user);
             setIsAuthenticated(true);
-            fetchWatchlist();
 
         } catch (err) {
-            alert("Login failed");
+            console.error("Login error:", err);
+            alert("Login failed. Please check console for details.");
         }
     }, []);
 
     useEffect(() => {
         function initializeGoogle() {
             const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-            if (!clientId) return;
+            if (!clientId) {
+                console.error('Google Client ID not configured');
+                return;
+            }
 
             window.google.accounts.id.initialize({
                 client_id: clientId,
@@ -123,6 +187,7 @@ function Home() {
             script.src = "https://accounts.google.com/gsi/client";
             script.async = true;
             script.onload = initializeGoogle;
+            script.onerror = () => console.error('Failed to load Google Sign-In script');
             document.head.appendChild(script);
         } else {
             initializeGoogle();
@@ -142,6 +207,7 @@ function Home() {
                 setProjects(Array.isArray(data) ? data : []);
 
             } catch (err) {
+                console.error('Failed to load rankings:', err);
                 setError("Failed loading rankings");
             } finally {
                 setLoading(false);
@@ -168,27 +234,38 @@ function Home() {
     const handleWatchlist = async (symbol) => {
         try {
             const token = localStorage.getItem("token");
-            if (!token) return alert("Please login first");
+            if (!token) {
+                alert("Please login first");
+                return;
+            }
 
             const isInWatchlist = watchlist.some(item => item.symbol === symbol);
             const endpoint = isInWatchlist ? 'remove' : 'add';
 
-            const res = await fetch(
-                getSecureApiUrl(`/watchlist/${endpoint}/${symbol}`),
-                {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                    },
-                }
-            );
+            const url = getSecureApiUrl(`/watchlist/${endpoint}/${symbol}`);
+            if (!url) {
+                throw new Error('API URL is not configured');
+            }
 
-            if (!res.ok) throw new Error();
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            if (!res.ok) {
+                const errorData = await res.text();
+                console.error('Watchlist update failed:', errorData);
+                throw new Error();
+            }
 
             alert(isInWatchlist ? "Removed from watchlist" : "Added to watchlist");
             fetchWatchlist();
 
-        } catch {
+        } catch (error) {
+            console.error('Watchlist error:', error);
             alert("Could not update watchlist");
         }
     };
@@ -198,16 +275,20 @@ function Home() {
     // =====================================
     const fetchExplanation = useCallback(async (symbol) => {
         try {
-            const res = await fetch(
-                getSecureApiUrl(`/ai/explain/${symbol}`)
-            );
+            const url = getSecureApiUrl(`/ai/explain/${symbol}`);
+            if (!url) {
+                throw new Error('API URL is not configured');
+            }
+
+            const res = await fetch(url);
             const data = await res.json();
 
             setExplanations(prev => ({
                 ...prev,
                 [symbol]: data.explanation || "No explanation available."
             }));
-        } catch {
+        } catch (error) {
+            console.error('Failed to fetch explanation:', error);
             setExplanations(prev => ({
                 ...prev,
                 [symbol]: "Unable to generate explanation."
@@ -473,7 +554,9 @@ function Home() {
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: "600" }}>{user?.name || "User"}</div>
-                                        <div style={{ fontSize: "12px", color: "#94a3b8" }}>{watchlist.length} in watchlist</div>
+                                        <div style={{ fontSize: "12px", color: "#94a3b8" }}>
+                                            {watchlistLoading ? "Loading..." : `${watchlist.length} in watchlist`}
+                                        </div>
                                     </div>
                                 </div>
                                 <button 
@@ -791,7 +874,12 @@ function Home() {
                 {/* Watchlist View */}
                 {activeView === "watchlist" && (
                     <div>
-                        {watchlist.length === 0 ? (
+                        {watchlistLoading ? (
+                            <div style={{ textAlign: "center", padding: "60px" }}>
+                                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔄</div>
+                                <p style={{ color: "#94a3b8" }}>Loading watchlist...</p>
+                            </div>
+                        ) : watchlist.length === 0 ? (
                             <div style={{ 
                                 textAlign: "center", 
                                 padding: "60px",
