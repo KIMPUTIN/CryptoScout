@@ -9,7 +9,7 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 
 
 @router.get("/explain/{symbol}")
-async def explain(symbol: str, user=Depends(require_pro)):
+def explain(symbol: str): #, user=Depends(require_pro)): ------
     return generate_trending_explanation(symbol)
 
 
