@@ -92,7 +92,7 @@ function Home() {
         setWatchlistLoading(true);
         
         try {
-            const url = getSecureApiUrl('/watchlist');
+            const url = getSecureApiUrl('/watchlist/');
             if (!url) {
                 throw new Error('API URL is not configured');
             }
@@ -275,18 +275,26 @@ function Home() {
     // =====================================
     const fetchExplanation = useCallback(async (symbol) => {
         try {
-            const url = getSecureApiUrl(`/ai/explain/${symbol}`);
-            if (!url) {
-                throw new Error('API URL is not configured');
-            }
+            const token = localStorage.getItem("token");
 
-            const res = await fetch(url);
+            const url = getSecureApiUrl(`/ai/explain/${symbol}`);
+            if (!url) throw new Error('API URL is not configured');
+
+            const res = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) throw new Error("Failed request");
+
             const data = await res.json();
 
             setExplanations(prev => ({
                 ...prev,
                 [symbol]: data.explanation || "No explanation available."
             }));
+
         } catch (error) {
             console.error('Failed to fetch explanation:', error);
             setExplanations(prev => ({
