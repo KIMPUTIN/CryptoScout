@@ -38,19 +38,16 @@ def get_current_user(authorization: str = Header(None)):
 
 def require_pro(current_user = Depends(get_current_user)):
 
-    # No subscription at all
-    if not current_user.subscription_expires_at:
-        raise HTTPException(
-            status_code=403,
-            detail="Trader Mode required"
-        )
+    expires_at = current_user.get("subscription_expires_at")
 
-    # Expired subscription
-    if current_user.subscription_expires_at < datetime.utcnow():
-        raise HTTPException(
-            status_code=403,
-            detail="Subscription expired"
-        )
+    if not expires_at:
+        raise HTTPException(status_code=403, detail="Trader Mode required")
+
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+
+    if expires_at < datetime.utcnow():
+        raise HTTPException(status_code=403, detail="Subscription expired")
 
     return current_user
 
